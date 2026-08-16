@@ -19,3 +19,6 @@ yarn-error.log*
 # real seller data — NEVER commit financial/PII samples
 /sample-data/
 *.private.*
+
+# harness fence instrumentation (never commit)
+.openclaw/
