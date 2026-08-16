@@ -1,0 +1,21 @@
+# deps
+node_modules/
+
+# build
+dist/
+dist-ssr/
+
+# local / editor
+*.local
+.DS_Store
+.vscode/
+.idea/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# real seller data — NEVER commit financial/PII samples
+/sample-data/
+*.private.*
