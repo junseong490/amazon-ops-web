@@ -169,6 +169,19 @@ a {
   border-color: rgba(79, 156, 249, 0.35);
 }
 
+.app-nav a .nav-badge {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--warn);
+  border: 1px solid rgba(230, 177, 104, 0.4);
+  background: rgba(230, 177, 104, 0.1);
+  vertical-align: middle;
+}
+
 .app-main {
   padding: 26px 24px 60px;
   max-width: 1200px;

@@ -1,16 +1,22 @@
-// 라우팅·레이아웃. MVP는 매출 대시보드만 구현. /ads·/inventory는 로드맵 자리(§16).
+// 라우팅·레이아웃. 3기능(/sales·/ads·/inventory)을 하나의 프레임으로.
+// /sales·/inventory 실동작, /ads는 준비중(골격) 배지 표시(plan §4).
 import type { ReactNode } from 'react';
 import { HashRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import { SalesDashboard } from '../features/sales/views/SalesDashboard';
+import { AdsWorkspace } from '../features/ads/views/AdsWorkspace';
+import { InventoryCalculator } from '../features/inventory/views/InventoryCalculator';
 
-function RoadmapPlaceholder({ title }: { title: string }) {
-  return (
-    <div className="panel">
-      <h2>{title}</h2>
-      <p className="muted">로드맵 기능입니다. MVP 범위가 아니라 아직 구현되지 않았습니다.</p>
-    </div>
-  );
+interface NavItem {
+  to: string;
+  label: string;
+  badge?: string;
 }
+
+const NAV: NavItem[] = [
+  { to: '/sales', label: '매출' },
+  { to: '/ads', label: '광고', badge: '준비중' },
+  { to: '/inventory', label: '재고' },
+];
 
 function Layout({ children }: { children: ReactNode }) {
   return (
@@ -19,20 +25,17 @@ function Layout({ children }: { children: ReactNode }) {
         <div className="brand">
           <div className="brand-mark" aria-hidden="true">A</div>
           <div className="brand-text">
-            <h1>Amazon 매출 대시보드</h1>
-            <span className="tag">셀러 리포트 · 국가 · 품목 · 일별 매출 분석</span>
+            <h1>Amazon 셀러 운영 콘솔</h1>
+            <span className="tag">매출 · 광고 · 재고 — 다국가 셀러 운영 보조</span>
           </div>
         </div>
         <nav className="app-nav">
-          <NavLink to="/sales" className={({ isActive }) => (isActive ? 'active' : '')}>
-            매출
-          </NavLink>
-          <NavLink to="/ads" className={({ isActive }) => (isActive ? 'active' : '')}>
-            광고(로드맵)
-          </NavLink>
-          <NavLink to="/inventory" className={({ isActive }) => (isActive ? 'active' : '')}>
-            재고(로드맵)
-          </NavLink>
+          {NAV.map((item) => (
+            <NavLink key={item.to} to={item.to} className={({ isActive }) => (isActive ? 'active' : '')}>
+              {item.label}
+              {item.badge && <span className="nav-badge">{item.badge}</span>}
+            </NavLink>
+          ))}
         </nav>
       </header>
       <main className="app-main">{children}</main>
@@ -47,8 +50,8 @@ export function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/sales" replace />} />
           <Route path="/sales" element={<SalesDashboard />} />
-          <Route path="/ads" element={<RoadmapPlaceholder title="광고 최적화" />} />
-          <Route path="/inventory" element={<RoadmapPlaceholder title="재고 계산기" />} />
+          <Route path="/ads" element={<AdsWorkspace />} />
+          <Route path="/inventory" element={<InventoryCalculator />} />
           <Route path="*" element={<Navigate to="/sales" replace />} />
         </Routes>
       </Layout>
