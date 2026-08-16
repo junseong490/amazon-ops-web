@@ -16,7 +16,13 @@ function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <h1>Amazon 매출 대시보드</h1>
+        <div className="brand">
+          <div className="brand-mark" aria-hidden="true">A</div>
+          <div className="brand-text">
+            <h1>Amazon 매출 대시보드</h1>
+            <span className="tag">셀러 리포트 · 국가 · 품목 · 일별 매출 분석</span>
+          </div>
+        </div>
         <nav className="app-nav">
           <NavLink to="/sales" className={({ isActive }) => (isActive ? 'active' : '')}>
             매출

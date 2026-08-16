@@ -23,6 +23,7 @@ import { createDefaultSource } from '../../../core/store/dataSource';
 import type { RawFile } from '../parse/pipeline';
 import { ingestFiles } from '../parse/pipeline';
 import { UploadPanel } from './UploadPanel';
+import { ClipCell } from '../../../components/ClipCell';
 
 const CHART_COLORS = ['#4f9cf9', '#59c3a3', '#e0a458', '#b98cf0', '#e06c75', '#7fd1e8'];
 
@@ -118,9 +119,22 @@ export function SalesDashboard() {
           <h2>업로드</h2>
           <UploadPanel onFiles={handleFiles} busy={busy} />
         </div>
-        <div className="panel empty">
-          아직 데이터가 없습니다. All Orders 리포트(.txt)를 업로드하면 국가별·품목별·일별 매출이
-          표시됩니다.
+        <div className="panel">
+          <div className="empty">
+            <div className="empty-icon" aria-hidden="true">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 3v18h18" />
+                <rect x="7" y="12" width="3" height="6" rx="1" />
+                <rect x="12" y="8" width="3" height="10" rx="1" />
+                <rect x="17" y="5" width="3" height="13" rx="1" />
+              </svg>
+            </div>
+            <div className="empty-title">아직 표시할 매출 데이터가 없습니다</div>
+            <div className="empty-sub">
+              위 영역에 All Orders 리포트(.txt / TSV)를 업로드하면 국가별·품목별·일별 매출과 KPI가
+              자동으로 계산됩니다. 데이터는 브라우저를 벗어나지 않습니다.
+            </div>
+          </div>
         </div>
       </>
     );
@@ -148,7 +162,7 @@ export function SalesDashboard() {
       <div className="panel">
         <h2>업로드</h2>
         <UploadPanel onFiles={handleFiles} busy={busy} />
-        <div style={{ display: 'flex', gap: 12, marginTop: 10, alignItems: 'center' }}>
+        <div className="loaded-bar">
           <span className="muted">
             {perFile.length}개 파일 · {records.length}개 라인 로드됨
           </span>
@@ -303,10 +317,8 @@ export function SalesDashboard() {
       <div className="panel">
         <h2>차트 · 통화 {cur || '—'}</h2>
         <div className="chart-grid">
-          <div>
-            <div className="muted" style={{ marginBottom: 6 }}>
-              일별 매출 추이
-            </div>
+          <div className="chart-card">
+            <div className="chart-title">일별 매출 추이</div>
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={dailyData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#2b3b4e" />
@@ -320,10 +332,8 @@ export function SalesDashboard() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div>
-            <div className="muted" style={{ marginBottom: 6 }}>
-              국가/마켓별 매출
-            </div>
+          <div className="chart-card">
+            <div className="chart-title">국가/마켓별 매출</div>
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={channelData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#2b3b4e" />
@@ -341,10 +351,8 @@ export function SalesDashboard() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div>
-            <div className="muted" style={{ marginBottom: 6 }}>
-              품목 Top 10 ({itemAxis.toUpperCase()})
-            </div>
+          <div className="chart-card">
+            <div className="chart-title">품목 Top 10 ({itemAxis.toUpperCase()})</div>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={itemData} layout="vertical" margin={{ left: 40 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#2b3b4e" />
@@ -370,85 +378,91 @@ export function SalesDashboard() {
       {/* 국가별 표 */}
       <div className="panel">
         <h2>국가/마켓별</h2>
-        <table className="data">
-          <thead>
-            <tr>
-              <th>마켓</th>
-              <th>주문수</th>
-              <th>수량</th>
-              <th>매출(통화별)</th>
-              {showTaxShipping && <th>세금</th>}
-              {showTaxShipping && <th>배송·기프트</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {byChannel.rows.map((r) => (
-              <tr key={r.keys[0]}>
-                <td>{r.keys[0]}</td>
-                <td>{r.orderCount.toLocaleString()}</td>
-                <td>{r.quantity.toLocaleString()}</td>
-                <td>{formatMoneyMap(r.revenueByCurrency)}</td>
-                {showTaxShipping && <td>{formatMoneyMap(r.taxByCurrency)}</td>}
-                {showTaxShipping && <td>{formatMoneyMap(r.shippingByCurrency)}</td>}
+        <div className="table-wrap">
+          <table className="data">
+            <thead>
+              <tr>
+                <th className="col-name">마켓</th>
+                <th>주문수</th>
+                <th>수량</th>
+                <th>매출(통화별)</th>
+                {showTaxShipping && <th>세금</th>}
+                {showTaxShipping && <th>배송·기프트</th>}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {byChannel.rows.map((r) => (
+                <tr key={r.keys[0]}>
+                  <ClipCell text={r.keys[0]} />
+                  <td>{r.orderCount.toLocaleString()}</td>
+                  <td>{r.quantity.toLocaleString()}</td>
+                  <td>{formatMoneyMap(r.revenueByCurrency)}</td>
+                  {showTaxShipping && <td>{formatMoneyMap(r.taxByCurrency)}</td>}
+                  {showTaxShipping && <td>{formatMoneyMap(r.shippingByCurrency)}</td>}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* 품목별 표 */}
       <div className="panel">
         <h2>품목별 ({itemAxis.toUpperCase()})</h2>
-        <table className="data">
-          <thead>
-            <tr>
-              <th>품목</th>
-              <th>키</th>
-              <th>수량</th>
-              <th>매출(통화별)</th>
-              <th>기여율({cur})</th>
-            </tr>
-          </thead>
-          <tbody>
-            {itemRowsSorted.map((r) => {
-              const share = curTotal > 0 ? ((r.revenueByCurrency[cur] || 0) / curTotal) * 100 : 0;
-              return (
-                <tr key={r.keys[0]}>
-                  <td>{byItem.itemLabels?.[r.keys[0]] || r.keys[0]}</td>
-                  <td className="muted">{r.keys[0]}</td>
-                  <td>{r.quantity.toLocaleString()}</td>
-                  <td>{formatMoneyMap(r.revenueByCurrency)}</td>
-                  <td>{share.toFixed(1)}%</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div className="table-wrap">
+          <table className="data">
+            <thead>
+              <tr>
+                <th className="col-name">품목</th>
+                <th className="col-key">키</th>
+                <th>수량</th>
+                <th>매출(통화별)</th>
+                <th>기여율({cur})</th>
+              </tr>
+            </thead>
+            <tbody>
+              {itemRowsSorted.map((r) => {
+                const share = curTotal > 0 ? ((r.revenueByCurrency[cur] || 0) / curTotal) * 100 : 0;
+                return (
+                  <tr key={r.keys[0]}>
+                    <ClipCell text={byItem.itemLabels?.[r.keys[0]] || r.keys[0]} />
+                    <ClipCell text={r.keys[0]} variant="key" />
+                    <td>{r.quantity.toLocaleString()}</td>
+                    <td>{formatMoneyMap(r.revenueByCurrency)}</td>
+                    <td>{share.toFixed(1)}%</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* 일별 표 */}
       <div className="panel">
         <h2>일별 (마켓 현지시각 기준)</h2>
-        <table className="data">
-          <thead>
-            <tr>
-              <th>날짜</th>
-              <th>주문수</th>
-              <th>수량</th>
-              <th>매출(통화별)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {byDate.rows.map((r) => (
-              <tr key={r.keys[0]}>
-                <td>{r.keys[0]}</td>
-                <td>{r.orderCount.toLocaleString()}</td>
-                <td>{r.quantity.toLocaleString()}</td>
-                <td>{formatMoneyMap(r.revenueByCurrency)}</td>
+        <div className="table-wrap">
+          <table className="data">
+            <thead>
+              <tr>
+                <th className="col-name">날짜</th>
+                <th>주문수</th>
+                <th>수량</th>
+                <th>매출(통화별)</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {byDate.rows.map((r) => (
+                <tr key={r.keys[0]}>
+                  <td>{r.keys[0]}</td>
+                  <td>{r.orderCount.toLocaleString()}</td>
+                  <td>{r.quantity.toLocaleString()}</td>
+                  <td>{formatMoneyMap(r.revenueByCurrency)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </>
   );

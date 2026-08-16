@@ -56,14 +56,26 @@ export function UploadPanel({ onFiles, busy }: Props) {
         }}
       />
       {busy ? (
-        <div>파싱 중…</div>
+        <div className="dz-busy">
+          <span className="spinner" aria-hidden="true" />
+          리포트 파싱 중…
+        </div>
       ) : (
-        <div>
-          <strong>All Orders 리포트(.txt / TSV)</strong> 파일을 끌어다 놓거나 클릭해 선택하세요.
-          <div className="muted" style={{ marginTop: 6 }}>
+        <>
+          <div className="dz-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 16V4" />
+              <path d="M8 8l4-4 4 4" />
+              <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+            </svg>
+          </div>
+          <div className="dz-title">
+            <strong>All Orders 리포트(.txt / TSV)</strong>를 끌어다 놓거나 클릭해 선택
+          </div>
+          <div className="dz-sub">
             여러 파일·여러 마켓 동시 업로드 가능. 데이터는 브라우저를 벗어나지 않습니다.
           </div>
-        </div>
+        </>
       )}
     </div>
   );
