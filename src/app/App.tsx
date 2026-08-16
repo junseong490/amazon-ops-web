@@ -5,6 +5,7 @@ import { HashRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import { SalesDashboard } from '../features/sales/views/SalesDashboard';
 import { AdsWorkspace } from '../features/ads/views/AdsWorkspace';
 import { InventoryCalculator } from '../features/inventory/views/InventoryCalculator';
+import { PricingSimulator } from '../features/pricing/views/PricingSimulator';
 
 interface NavItem {
   to: string;
@@ -16,6 +17,7 @@ const NAV: NavItem[] = [
   { to: '/sales', label: '매출' },
   { to: '/ads', label: '광고' },
   { to: '/inventory', label: '재고' },
+  { to: '/pricing', label: '가격·마진' },
 ];
 
 function Layout({ children }: { children: ReactNode }) {
@@ -52,6 +54,7 @@ export function App() {
           <Route path="/sales" element={<SalesDashboard />} />
           <Route path="/ads" element={<AdsWorkspace />} />
           <Route path="/inventory" element={<InventoryCalculator />} />
+          <Route path="/pricing" element={<PricingSimulator />} />
           <Route path="*" element={<Navigate to="/sales" replace />} />
         </Routes>
       </Layout>
