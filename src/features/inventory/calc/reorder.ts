@@ -1,8 +1,20 @@
 // 재고 재주문 계산 — 순수 함수(I/O 없음). 수동 입력만으로 동작.
 // 매출 데이터가 없어도 velocity/리드타임/현재고/안전재고만 있으면 계산된다.
-// plan §6.2. 유료 단계 서버로 그대로 이식 가능.
+// plan §6.2·§10.3(FBM). 공용 식은 calc/primitives.ts로 분해(동작 불변, 회귀 T1).
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+import {
+  DAY_MS,
+  dateKeyUtc,
+  daysOfSupply as dosPrimitive,
+  daysUntil,
+  orderUpToLevel as orderUpToLevelPrimitive,
+  recommendedQty,
+  reorderPoint as reorderPointPrimitive,
+  safetyStockFromLeadTime,
+} from './primitives';
+
+// 계수 방식 안전재고는 primitives에서 관리하되, 기존 import 경로 호환을 위해 재노출.
+export { safetyStockFromLeadTime };
 
 export interface InventoryInput {
   /** 일 평균 판매량 (units/day) */
@@ -40,25 +52,8 @@ export interface InventoryResult {
   recommendedOrderQty: number;
 }
 
-/** 안전재고를 리드타임×velocity×계수로 산출(계수 방식 선택 시). */
-export function safetyStockFromLeadTime(
-  velocity: number,
-  leadTimeDays: number,
-  factor: number,
-): number {
-  const v = Math.max(0, velocity);
-  const lt = Math.max(0, leadTimeDays);
-  const f = Math.max(0, factor);
-  return v * lt * f;
-}
-
-/** epoch ms → 'YYYY-MM-DD' (UTC 기준, 표시 일자). */
-function dateKeyUtc(ms: number): string {
-  return new Date(ms).toISOString().slice(0, 10);
-}
-
 /**
- * 순수 재고 계산. todayMs는 소진 예상일자 산출용(테스트 결정성 위해 주입 가능).
+ * 순수 재고 계산(FBM 단일창고). todayMs는 소진 예상일자 산출용(테스트 결정성 위해 주입 가능).
  */
 export function computeInventory(input: InventoryInput, todayMs: number = Date.now()): InventoryResult {
   const velocity = Math.max(0, input.velocity || 0);
@@ -70,25 +65,19 @@ export function computeInventory(input: InventoryInput, todayMs: number = Date.n
   const lotSize = input.lotSize && input.lotSize > 0 ? input.lotSize : 0;
   const minOrderQty = Math.max(0, input.minOrderQty || 0);
 
-  const reorderPoint = velocity * leadTimeDays + safetyStock;
-  const orderUpToLevel = velocity * (leadTimeDays + reviewDays) + safetyStock;
+  const reorderPoint = reorderPointPrimitive(velocity, leadTimeDays, safetyStock);
+  const orderUpToLevel = orderUpToLevelPrimitive(velocity, leadTimeDays, reviewDays, safetyStock);
   const position = currentStock + onOrder;
   const needsReorder = position <= reorderPoint;
 
-  const daysOfSupply = velocity > 0 ? currentStock / velocity : null;
-  const daysUntilReorder =
-    velocity > 0 ? Math.max(0, (currentStock - reorderPoint) / velocity) : null;
+  const daysOfSupply = dosPrimitive(currentStock, velocity);
+  const daysUntilReorder = daysUntil(currentStock, reorderPoint, velocity);
   const stockoutDate =
     daysOfSupply !== null ? dateKeyUtc(todayMs + daysOfSupply * DAY_MS) : null;
 
-  let qty = 0;
-  if (needsReorder) {
-    qty = Math.max(0, orderUpToLevel - position);
-    if (qty > 0) {
-      if (minOrderQty > 0 && qty < minOrderQty) qty = minOrderQty;
-      qty = lotSize > 0 ? Math.ceil(qty / lotSize) * lotSize : Math.ceil(qty);
-    }
-  }
+  const recommendedOrderQty = needsReorder
+    ? recommendedQty(orderUpToLevel, position, minOrderQty, lotSize)
+    : 0;
 
   return {
     reorderPoint,
@@ -97,6 +86,6 @@ export function computeInventory(input: InventoryInput, todayMs: number = Date.n
     stockoutDate,
     needsReorder,
     orderUpToLevel,
-    recommendedOrderQty: qty,
+    recommendedOrderQty,
   };
 }
