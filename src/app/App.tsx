@@ -14,7 +14,7 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { to: '/sales', label: '매출' },
-  { to: '/ads', label: '광고', badge: '준비중' },
+  { to: '/ads', label: '광고' },
   { to: '/inventory', label: '재고' },
 ];
 

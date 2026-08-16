@@ -520,6 +520,35 @@ table.data td.col-key .cell-clip {
   border-color: var(--danger);
 }
 
+.badge.good {
+  color: var(--accent-2);
+  border-color: var(--accent-2);
+}
+
+.badge.info {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* 광고: 권장 입찰 변화 방향 셀 강조 */
+td.bid-up {
+  color: var(--accent-2);
+}
+td.bid-down {
+  color: var(--danger);
+}
+.bid-input {
+  width: 72px;
+}
+.acos-input {
+  width: 64px;
+}
+.flag-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
 /* ---------------------------------------------------------------- 드롭존 */
 
 .dropzone {
