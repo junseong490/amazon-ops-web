@@ -1,3 +1,9 @@
+/* --- 실험(experiment/video-hero) 한정: 랜딩 히어로 전용 Tailwind 레이어.
+   preflight는 tailwind.config.js에서 비활성화 → 아래 정본 리셋/토큰과 공존. --- */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* ============================================================================
    Amazon 셀러 콘솔 — 프레젠테이션 스타일시트 (macOS 시스템 UI 스타일).
    승인된 정본 목업(mockup-sales-APPROVED.html / mockup-landing-APPROVED.html)에서

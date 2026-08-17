@@ -1,214 +1,151 @@
-// 랜딩페이지 — macOS 시스템 UI 스타일(승인된 정본 mockup-landing-APPROVED.html 이식).
-// 단일 밝은 회색 배경, 솔리드 화이트 sticky 헤더, 히어로 헤드라인 + 브라우저 크롬 프레임
-// 안에 실제 대시보드 미리보기(라운드스퀘어 그라디언트 아이콘 배지 + 플랫 2D 막대).
-// 기능 4개는 넘버링 없이 한 줄 그리드. 요금제 섹션 없음(유료화 미착수).
-// 표시 계층만(로직 없음). 진입 라우트(/)로, CTA를 눌러야 대시보드(/sales)로 들어간다.
-import { Link, useNavigate } from 'react-router-dom';
+// 랜딩페이지 — 실험(experiment/video-hero): 풀스크린 배경 비디오 히어로.
+// 구조·기법은 참고 프롬프트에서 가져오되(비디오 히어로 + 알약 네비 + ShinyText + CTA),
+// 콘텐츠는 전부 우리 실제 제품("Amazon 셀러 콘솔") 정본 카피로 채운다.
+// 표시 계층만 — 로직 불변. 진입 라우트(/)로, CTA를 눌러야 대시보드(/sales)로 들어간다.
+// Tailwind 유틸리티는 이 랜딩 파일에만 스코프됨(tailwind.config content). preflight 비활성.
+import { useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
+import { motion, useReducedMotion } from 'framer-motion';
+import { ArrowRight } from 'lucide-react';
+import { ShinyText } from './ShinyText';
 
-const YEAR = new Date().getFullYear();
+// 사용자 제공(유효성 확인됨) 배경 영상.
+const VIDEO_SRC =
+  'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260328_105406_16f4600d-7a92-4292-b96e-b19156c7830a.mp4';
 
-// 기능 4개 — 순서 아님(병렬). 넘버링 금지. 각 아이콘은 흰 stroke 라인아이콘(SVG).
-interface Feature {
-  key: string;
-  name: string;
-  desc: string;
-  icon: JSX.Element;
-}
-
-const FEATURES: Feature[] = [
-  {
-    key: 'sales',
-    name: '매출 대시보드',
-    desc: '주문 리포트를 올리면 국가·품목·일별 매출과 KPI가 자동으로 계산됩니다.',
-    icon: (
-      <svg viewBox="0 0 24 24">
-        <path d="M3 17l5-5 4 4 8-9" />
-        <path d="M15 7h5v5" />
-      </svg>
-    ),
-  },
-  {
-    key: 'ads',
-    name: '광고 최적화',
-    desc: 'SP 벌크 파일을 분석해 입찰가를 제안하고, 선택한 것만 반영해 재다운로드합니다.',
-    icon: (
-      <svg viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="8.5" />
-        <circle cx="12" cy="12" r="4.5" />
-        <circle cx="12" cy="12" r="0.6" fill="#fff" />
-      </svg>
-    ),
-  },
-  {
-    key: 'inventory',
-    name: '재고 계산기',
-    desc: '미국은 FBA 2단(3PL↔FBA), 일본은 FBM 단일창고 — 언제 얼마나 보낼지 계산합니다.',
-    icon: (
-      <svg viewBox="0 0 24 24">
-        <path d="M21 8l-9-5-9 5 9 5 9-5z" />
-        <path d="M3 8v8l9 5 9-5V8" />
-        <path d="M12 13v8" />
-      </svg>
-    ),
-  },
-  {
-    key: 'pricing',
-    name: '가격·마진',
-    desc: '관세·물류·수수료까지 반영한 카테고리별 비용구조로 실제 마진을 확인합니다.',
-    icon: (
-      <svg viewBox="0 0 24 24">
-        <rect x="5" y="3" width="14" height="18" rx="2" />
-        <path d="M8 7h8" />
-        <path d="M8 11h2M12 11h2M16 11h0M8 15h2M12 15h2M16 15h0" />
-      </svg>
-    ),
-  },
+// 알약 네비 링크 — 실제 대시보드 라우트.
+const NAV_LINKS: { to: string; label: string }[] = [
+  { to: '/sales', label: '매출' },
+  { to: '/ads', label: '광고' },
+  { to: '/inventory', label: '재고' },
+  { to: '/pricing', label: '가격·마진' },
+  { to: '/listing', label: '리스팅 진단' },
 ];
 
-// 히어로 프레임 안 미니 차트(표시 전용 목업 축척) — 정본과 동일한 높이 배열.
-const PREVIEW_BARS = [35, 52, 41, 28, 63, 71, 58, 80, 66, 22, 74, 90, 69, 55];
-
-function scrollToId(id: string) {
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
 export function LandingPage() {
-  const navigate = useNavigate();
-  const start = () => navigate('/sales');
+  const reduceMotion = useReducedMotion();
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // prefers-reduced-motion: reduce → 자동재생 억제(정지 프레임 유지).
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (reduceMotion) v.pause();
+  }, [reduceMotion]);
 
   return (
-    <div className="landing">
-      {/* 헤더 — 솔리드 화이트 sticky */}
-      <header className="lp-header">
-        <div className="lp-header-inner">
-          <Link to="/" className="side-brand" aria-label="홈으로" style={{ padding: 0 }}>
-            <span className="side-mark" aria-hidden="true" />
-            <span className="lp-wordmark">Amazon 셀러 콘솔</span>
-          </Link>
-          <nav className="lp-nav" aria-label="주요 메뉴">
-            <div className="lp-nav-links">
-              <Link className="lp-nav-link" to="/sales">매출</Link>
-              <Link className="lp-nav-link" to="/ads">광고</Link>
-              <Link className="lp-nav-link" to="/inventory">재고</Link>
-              <Link className="lp-nav-link" to="/pricing">가격·마진</Link>
-            </div>
-            <div className="lp-nav-cta">
-              <button className="lp-btn lp-btn-outline" onClick={start}>로그인</button>
-              <button className="lp-btn lp-btn-primary" onClick={start}>시작하기</button>
-            </div>
-          </nav>
-        </div>
-      </header>
+    <div className="relative min-h-screen w-full overflow-hidden bg-black font-sans text-white">
+      {/* 풀스크린 배경 비디오 */}
+      <video
+        ref={videoRef}
+        className="absolute inset-0 h-full w-full object-cover"
+        src={VIDEO_SRC}
+        autoPlay={!reduceMotion}
+        loop
+        muted
+        playsInline
+        preload="auto"
+        aria-hidden="true"
+      />
 
-      {/* 히어로 — 헤드라인 + 브라우저 프레임 안 대시보드 미리보기 */}
-      <section className="lp-hero">
-        <div className="landing-wrap">
-          <span className="lp-eyebrow">
-            <span className="lp-eyebrow-dot" aria-hidden="true" />
+      {/* 대비 확보용 다크 오버레이(상·하 그라디언트 + 전체 톤다운) */}
+      <div
+        className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/40 to-black/80"
+        aria-hidden="true"
+      />
+      <div className="absolute inset-0 bg-black/30" aria-hidden="true" />
+
+      {/* 콘텐츠 레이어 */}
+      <div className="relative z-10 flex min-h-screen flex-col">
+        {/* 알약형 네비게이션 */}
+        <header className="flex justify-center px-4 pt-6 sm:pt-8">
+          <nav
+            className="flex w-full max-w-4xl items-center justify-between gap-4 rounded-full border border-white/15 bg-white/5 px-3 py-2 backdrop-blur-md sm:px-4"
+            aria-label="주요 메뉴"
+          >
+            <Link to="/" className="flex items-center gap-2.5 pl-1" aria-label="홈으로">
+              <span className="grid h-8 w-8 place-items-center rounded-full border border-white/25 bg-gradient-to-br from-[#64CEFB]/30 to-white/10 text-sm font-semibold">
+                A
+              </span>
+              <span className="hidden text-sm font-semibold tracking-tight text-white sm:inline">
+                Amazon 셀러 콘솔
+              </span>
+            </Link>
+
+            <div className="hidden items-center gap-1 md:flex">
+              {NAV_LINKS.map((item) => (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className="rounded-full px-3 py-1.5 text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+
+            <Link
+              to="/sales"
+              className="rounded-full bg-white px-4 py-1.5 text-sm font-medium text-black transition-colors hover:bg-white/85"
+            >
+              시작하기
+            </Link>
+          </nav>
+        </header>
+
+        {/* 히어로 */}
+        <main className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
+          <motion.span
+            initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-xs font-medium text-white/80 backdrop-blur-sm sm:text-sm"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-[#64CEFB]" aria-hidden="true" />
             아마존 셀러를 위한 운영 콘솔
-          </span>
-          <h1 className="lp-hero-title">
+          </motion.span>
+
+          <motion.h1
+            initial={reduceMotion ? false : { opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.05 }}
+            className="max-w-3xl text-4xl font-bold leading-tight tracking-tight sm:text-5xl md:text-6xl"
+          >
             매출·광고·재고·마진을
             <br />
-            <span className="grad">한 화면</span>에서 관리하세요
-          </h1>
-          <p className="lp-hero-sub">
+            <ShinyText>한 화면</ShinyText>
+            <span className="text-white">에서 관리하세요</span>
+          </motion.h1>
+
+          <motion.p
+            initial={reduceMotion ? false : { opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.12 }}
+            className="mt-6 max-w-2xl text-base leading-relaxed text-white/75 sm:text-lg"
+          >
             미국(FBA)·일본(FBM) 두 마켓을 오가며 엑셀과 리포트를 뒤지지 마세요. 업로드 한 번이면 국가별
             매출, 광고 최적화, 재고 발주 시점, 마진까지 자동으로 계산됩니다.
-          </p>
-          <div className="lp-hero-cta">
-            <button className="lp-btn lp-btn-primary lp-btn-lg" onClick={start}>
-              무료로 시작하기 →
-            </button>
-            <button className="lp-btn lp-btn-outline lp-btn-lg" onClick={() => scrollToId('features')}>
-              기능 살펴보기
-            </button>
-          </div>
+          </motion.p>
 
-          <div className="lp-frame lp-frame-in" aria-hidden="true">
-            <div className="lp-frame-bar">
-              <span className="lp-dot" />
-              <span className="lp-dot" />
-              <span className="lp-dot" />
-            </div>
-            <div className="lp-frame-body">
-              <div className="lp-mini-kpi">
-                <div className="ic">
-                  <svg viewBox="0 0 24 24">
-                    <path d="M3 17l5-5 4 4 8-9" />
-                    <path d="M15 7h5v5" />
-                  </svg>
-                </div>
-                <div className="l">총 매출</div>
-                <div className="v">$48,210</div>
-              </div>
-              <div className="lp-mini-kpi">
-                <div className="ic">
-                  <svg viewBox="0 0 24 24">
-                    <path d="M21 8l-9-5-9 5 9 5 9-5z" />
-                    <path d="M3 8v8l9 5 9-5V8" />
-                    <path d="M12 13v8" />
-                  </svg>
-                </div>
-                <div className="l">주문 건수</div>
-                <div className="v">1,204</div>
-              </div>
-              <div className="lp-mini-kpi">
-                <div className="ic">
-                  <svg viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="8.5" />
-                    <circle cx="12" cy="12" r="4.5" />
-                    <circle cx="12" cy="12" r="0.6" fill="#fff" />
-                  </svg>
-                </div>
-                <div className="l">평균 객단가</div>
-                <div className="v">$40.05</div>
-              </div>
-              <div className="lp-mini-kpi">
-                <div className="ic">
-                  <svg viewBox="0 0 24 24">
-                    <path d="M9 14l-5-5 5-5" />
-                    <path d="M4 9h11a5 5 0 0 1 5 5v1" />
-                  </svg>
-                </div>
-                <div className="l">환불율</div>
-                <div className="v">1.8%</div>
-              </div>
-              <div className="lp-frame-chart">
-                {PREVIEW_BARS.map((h, i) => (
-                  <i key={i} style={{ height: `${h}%` }} />
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 기능 4개 — 넘버링 없이 한 줄 그리드 */}
-      <section className="lp-features" id="features">
-        <div className="landing-wrap">
-          <div className="lp-sec-head">
-            <span className="lp-eyebrow">기능</span>
-            <h2>네 가지 도구, 하나의 콘솔</h2>
-          </div>
-          <div className="lp-feat-grid">
-            {FEATURES.map((f) => (
-              <div className="lp-feat" key={f.key}>
-                <div className="ic" aria-hidden="true">
-                  {f.icon}
-                </div>
-                <h3>{f.name}</h3>
-                <p>{f.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* 푸터 — 한 줄(요금제 없음, 지금은 무료) */}
-      <footer className="lp-footer">
-        © {YEAR} Amazon 셀러 콘솔 · 지금은 무료로 이용 가능합니다
-      </footer>
+          <motion.div
+            initial={reduceMotion ? false : { opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.18 }}
+            className="mt-10"
+          >
+            <Link
+              to="/sales"
+              className="group inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 text-base font-semibold text-black shadow-lg shadow-black/20 transition-transform hover:scale-[1.02]"
+            >
+              무료로 시작하기
+              <ArrowRight
+                className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-1"
+                aria-hidden="true"
+              />
+            </Link>
+          </motion.div>
+        </main>
+      </div>
     </div>
   );
 }
