@@ -4,14 +4,15 @@ import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis
 import { formatMoney } from '../../../core/money/format';
 import type { PricingResult } from '../calc/pricing';
 import { fmt } from './shared';
-
-const CHART_COLORS = ['#4f9cf9', '#59c3a3', '#e6b168', '#e0707a', '#a78bfa', '#7dd3fc'];
+import { CountUp } from '../../../components/CountUp';
+import { useChartTokens, tooltipStyle } from '../../../components/chartTokens';
 
 function pct(rate: number | null): string {
   return rate === null ? '—' : `${fmt(rate * 100, 1)}%`;
 }
 
 export function ResultPanel({ result }: { result: PricingResult }) {
+  const chart = useChartTokens();
   const cur = result.currency;
   const profitClass = result.netProfit >= 0 ? 'good' : 'danger';
   const chartData = result.categorySubtotals.map((c) => ({ name: c.name, cost: c.subtotal }));
@@ -22,17 +23,25 @@ export function ResultPanel({ result }: { result: PricingResult }) {
       <div className="kpi-grid">
         <div className="kpi-card">
           <div className="label">총비용 / 단위</div>
-          <div className="value">{formatMoney(result.costPerUnit, cur)}</div>
+          <div className="value">
+            <CountUp value={result.costPerUnit} format={(n) => formatMoney(n, cur)} />
+          </div>
         </div>
         <div className="kpi-card">
           <div className="label">순이익 / 단위</div>
           <div className="value" style={{ color: `var(--${profitClass === 'good' ? 'accent-2' : 'danger'})` }}>
-            {formatMoney(result.netProfit, cur)}
+            <CountUp value={result.netProfit} format={(n) => formatMoney(n, cur)} />
           </div>
         </div>
         <div className="kpi-card">
           <div className="label">마진율</div>
-          <div className="value">{pct(result.marginRate)}</div>
+          <div className="value">
+            {result.marginRate === null ? (
+              '—'
+            ) : (
+              <CountUp value={result.marginRate * 100} format={(n) => `${fmt(n, 1)}%`} />
+            )}
+          </div>
         </div>
         <div className="kpi-card">
           <div className="label">손익분기 판매가</div>
@@ -71,16 +80,17 @@ export function ResultPanel({ result }: { result: PricingResult }) {
         <div className="chart-title">카테고리별 단위 비용</div>
         <ResponsiveContainer width="100%" height={240}>
           <BarChart data={chartData} layout="vertical" margin={{ left: 40 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#2b3b4e" />
-            <XAxis type="number" stroke="#9fb0c0" fontSize={11} />
-            <YAxis type="category" dataKey="name" stroke="#9fb0c0" fontSize={11} width={90} />
+            <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} />
+            <XAxis type="number" stroke={chart.axis} fontSize={11} />
+            <YAxis type="category" dataKey="name" stroke={chart.axis} fontSize={11} width={90} />
             <Tooltip
+              cursor={{ fill: chart.grid }}
               formatter={(value) => formatMoney(Number(value), cur)}
-              contentStyle={{ background: '#172230', border: '1px solid #2b3b4e' }}
+              contentStyle={tooltipStyle(chart)}
             />
-            <Bar dataKey="cost">
+            <Bar dataKey="cost" radius={[0, 4, 4, 0]}>
               {chartData.map((_, i) => (
-                <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                <Cell key={i} fill={chart.series[i % chart.series.length]} />
               ))}
             </Bar>
           </BarChart>

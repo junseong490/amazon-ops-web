@@ -24,12 +24,13 @@ import type { RawFile } from '../parse/pipeline';
 import { ingestFiles } from '../parse/pipeline';
 import { UploadPanel } from './UploadPanel';
 import { ClipCell } from '../../../components/ClipCell';
-
-const CHART_COLORS = ['#4f9cf9', '#59c3a3', '#e0a458', '#b98cf0', '#e06c75', '#7fd1e8'];
+import { CountUp } from '../../../components/CountUp';
+import { useChartTokens, tooltipStyle } from '../../../components/chartTokens';
 
 const source = createDefaultSource();
 
 export function SalesDashboard() {
+  const chart = useChartTokens();
   const [records, setRecords] = useState<SalesRecord[]>([]);
   const [perFile, setPerFile] = useState<ParseResult[]>([]);
   const [busy, setBusy] = useState(false);
@@ -277,6 +278,9 @@ export function SalesDashboard() {
         </h2>
         <div className="kpi-grid">
           <div className="kpi-card">
+            <div className="kpi-badge g-blue" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 4 8-9" /><path d="M15 7h5v5" /></svg>
+            </div>
             <div className="label">
               총매출 ({revenueMode === 'net' ? '순매출' : 'gross'}, 통화별)
             </div>
@@ -293,10 +297,21 @@ export function SalesDashboard() {
             </div>
           </div>
           <div className="kpi-card">
+            <div className="kpi-badge g-orange" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5 9 5 9-5z" /><path d="M3 8v8l9 5 9-5V8" /><path d="M12 13v8" /></svg>
+            </div>
             <div className="label">주문수 (distinct order-id)</div>
-            <div className="value">{byChannel.totals.orderCount.toLocaleString()}</div>
+            <div className="value">
+              <CountUp
+                value={byChannel.totals.orderCount}
+                format={(n) => Math.round(n).toLocaleString()}
+              />
+            </div>
           </div>
           <div className="kpi-card">
+            <div className="kpi-badge g-green" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="0.6" fill="#fff" /></svg>
+            </div>
             <div className="label">AOV (통화별)</div>
             <div className="value">
               {currencies.map((c) => (
@@ -307,8 +322,16 @@ export function SalesDashboard() {
             </div>
           </div>
           <div className="kpi-card">
+            <div className="kpi-badge g-pink" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z" /><path d="M3 7v10l9 4 9-4V7" /></svg>
+            </div>
             <div className="label">판매수량</div>
-            <div className="value">{byChannel.totals.quantity.toLocaleString()}</div>
+            <div className="value">
+              <CountUp
+                value={byChannel.totals.quantity}
+                format={(n) => Math.round(n).toLocaleString()}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -321,14 +344,15 @@ export function SalesDashboard() {
             <div className="chart-title">일별 매출 추이</div>
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={dailyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2b3b4e" />
-                <XAxis dataKey="date" stroke="#9fb0c0" fontSize={11} />
-                <YAxis stroke="#9fb0c0" fontSize={11} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} />
+                <XAxis dataKey="date" stroke={chart.axis} fontSize={11} />
+                <YAxis stroke={chart.axis} fontSize={11} />
                 <Tooltip
+                  cursor={{ fill: chart.grid }}
                   formatter={(value) => formatMoney(Number(value), cur)}
-                  contentStyle={{ background: '#172230', border: '1px solid #2b3b4e' }}
+                  contentStyle={tooltipStyle(chart)}
                 />
-                <Bar dataKey="revenue" fill={CHART_COLORS[0]} />
+                <Bar dataKey="revenue" fill={chart.series[0]} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -336,16 +360,17 @@ export function SalesDashboard() {
             <div className="chart-title">국가/마켓별 매출</div>
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={channelData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2b3b4e" />
-                <XAxis dataKey="channel" stroke="#9fb0c0" fontSize={11} />
-                <YAxis stroke="#9fb0c0" fontSize={11} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} />
+                <XAxis dataKey="channel" stroke={chart.axis} fontSize={11} />
+                <YAxis stroke={chart.axis} fontSize={11} />
                 <Tooltip
+                  cursor={{ fill: chart.grid }}
                   formatter={(value) => formatMoney(Number(value), cur)}
-                  contentStyle={{ background: '#172230', border: '1px solid #2b3b4e' }}
+                  contentStyle={tooltipStyle(chart)}
                 />
-                <Bar dataKey="revenue">
+                <Bar dataKey="revenue" radius={[4, 4, 0, 0]}>
                   {channelData.map((_, i) => (
-                    <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                    <Cell key={i} fill={chart.series[i % chart.series.length]} />
                   ))}
                 </Bar>
               </BarChart>
@@ -355,20 +380,21 @@ export function SalesDashboard() {
             <div className="chart-title">품목 Top 10 ({itemAxis.toUpperCase()})</div>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={itemData} layout="vertical" margin={{ left: 40 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2b3b4e" />
-                <XAxis type="number" stroke="#9fb0c0" fontSize={11} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} />
+                <XAxis type="number" stroke={chart.axis} fontSize={11} />
                 <YAxis
                   type="category"
                   dataKey="item"
-                  stroke="#9fb0c0"
+                  stroke={chart.axis}
                   fontSize={11}
                   width={120}
                 />
                 <Tooltip
+                  cursor={{ fill: chart.grid }}
                   formatter={(value) => formatMoney(Number(value), cur)}
-                  contentStyle={{ background: '#172230', border: '1px solid #2b3b4e' }}
+                  contentStyle={tooltipStyle(chart)}
                 />
-                <Bar dataKey="revenue" fill={CHART_COLORS[1]} />
+                <Bar dataKey="revenue" fill={chart.series[1]} radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
