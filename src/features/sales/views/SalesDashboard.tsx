@@ -40,6 +40,8 @@ export function SalesDashboard() {
   const [busy, setBusy] = useState(false);
   // 데이터가 있을 때 업로드 드롭존 펼침/접힘. 빈 상태에선 무시(항상 펼침).
   const [uploadExpanded, setUploadExpanded] = useState(false);
+  // 품목 별칭 설정 패널 펼침/접힘. 업로드 패널과 동일하게 기본 접힘.
+  const [aliasExpanded, setAliasExpanded] = useState(false);
   // SKU/ASIN별 사용자 별칭(짧은 이름). 마운트 시 영구 저장소에서 복원.
   const [aliases, setAliases] = useState<Record<string, string>>({});
 
@@ -186,6 +188,13 @@ export function SalesDashboard() {
     (a, b) => (b.revenueByCurrency[cur] || 0) - (a.revenueByCurrency[cur] || 0),
   );
   const curTotal = byItem.totals.revenueByCurrency[cur] || 0;
+
+  // 별칭 설정 패널 접힘 요약용 카운트. 현재 품목 축(SKU/ASIN) 기준.
+  const aliasItemCount = itemRowsSorted.length;
+  const aliasSetCount = itemRowsSorted.filter((r) => {
+    const a = aliases[r.keys[0]];
+    return a != null && a.trim() !== '';
+  }).length;
 
   // 일별 품목별 피벗: 날짜=행, 품목(SKU/ASIN)=열, 월별 섹션 + 월 합계 2행.
   // 품목 컬럼 순서는 품목별 표(itemRowsSorted)와 동일하게 매출 내림차순.
@@ -420,6 +429,58 @@ export function SalesDashboard() {
         </div>
       </div>
 
+      {/* 품목 별칭 설정 — 탭과 무관한 상위 설정. 한 번 설정하면 국가·품목별/일별/일별
+          품목별 모든 표에 공통 적용된다(표시 라벨은 resolveItemLabel 공유 함수 경유). */}
+      <div className="panel">
+        <h2>품목 별칭 설정</h2>
+        <div className="loaded-bar">
+          <span className="muted">
+            {itemAxis.toUpperCase()} {aliasItemCount}개 중 {aliasSetCount}개 별칭 설정됨
+          </span>
+          <button className="btn" onClick={() => setAliasExpanded((v) => !v)}>
+            {aliasExpanded ? '접기' : '설정'}
+          </button>
+        </div>
+        {aliasExpanded && (
+          <div className="table-wrap" style={{ marginTop: 12 }}>
+            <table className="data">
+              <thead>
+                <tr>
+                  <th className="col-name">품목</th>
+                  <th className="col-key">키</th>
+                  <th className="col-name">별칭(짧은 이름)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {itemRowsSorted.map((r) => {
+                  const key = r.keys[0];
+                  const original = byItem.itemLabels?.[key] || key;
+                  return (
+                    <tr key={key}>
+                      <ClipCell text={original} />
+                      <ClipCell text={key} variant="key" />
+                      <td>
+                        <input
+                          type="text"
+                          style={{ width: '100%', minWidth: 120, boxSizing: 'border-box' }}
+                          value={aliases[key] ?? ''}
+                          placeholder={original}
+                          aria-label={`${key} 별칭`}
+                          onChange={(e) =>
+                            setAliases((prev) => ({ ...prev, [key]: e.target.value }))
+                          }
+                          onBlur={(e) => handleAliasChange(key, e.target.value)}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* 표 영역: 3블록을 탭으로 분리(세로 길이 축소) */}
       <SalesTableTabs active={tableTab} onChange={setTableTab} />
 
@@ -464,7 +525,6 @@ export function SalesDashboard() {
               <tr>
                 <th className="col-name">품목</th>
                 <th className="col-key">키</th>
-                <th className="col-name">별칭(짧은 이름)</th>
                 <th>수량</th>
                 <th>매출(통화별)</th>
                 <th>기여율({cur})</th>
@@ -474,24 +534,12 @@ export function SalesDashboard() {
               {itemRowsSorted.map((r) => {
                 const share = curTotal > 0 ? ((r.revenueByCurrency[cur] || 0) / curTotal) * 100 : 0;
                 const key = r.keys[0];
-                const original = byItem.itemLabels?.[key] || key;
+                // 표시 전용: 별칭이 있으면 별칭, 없으면 원본. 편집은 상단 "품목 별칭 설정" 패널에서만.
+                const label = resolveItemLabel(key, aliases, byItem.itemLabels);
                 return (
                   <tr key={key}>
-                    <ClipCell text={original} />
+                    <ClipCell text={label} />
                     <ClipCell text={key} variant="key" />
-                    <td>
-                      <input
-                        type="text"
-                        style={{ width: '100%', minWidth: 120, boxSizing: 'border-box' }}
-                        value={aliases[key] ?? ''}
-                        placeholder={original}
-                        aria-label={`${key} 별칭`}
-                        onChange={(e) =>
-                          setAliases((prev) => ({ ...prev, [key]: e.target.value }))
-                        }
-                        onBlur={(e) => handleAliasChange(key, e.target.value)}
-                      />
-                    </td>
                     <td>{r.quantity.toLocaleString()}</td>
                     <td>{formatMoneyMap(r.revenueByCurrency)}</td>
                     <td>{share.toFixed(1)}%</td>
