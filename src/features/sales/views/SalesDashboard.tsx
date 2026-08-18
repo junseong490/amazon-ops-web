@@ -18,6 +18,7 @@ import type {
   SalesRecord,
 } from '../../../types/domain';
 import { aggregate } from '../aggregate/aggregate';
+import { buildDailyItemPivot } from '../aggregate/pivot';
 import { formatMoney, formatMoneyMap } from '../../../core/money/format';
 import { createDefaultSource } from '../../../core/store/dataSource';
 import type { RawFile } from '../parse/pipeline';
@@ -155,11 +156,10 @@ export function SalesDashboard() {
   );
   const curTotal = byItem.totals.revenueByCurrency[cur] || 0;
 
-  // 일별×품목별: 날짜 내림차순(최신 먼저), 같은 날짜 안에서는 수량 내림차순
-  const dateItemRows = [...byDateItem.rows].sort((a, b) => {
-    if (a.keys[0] !== b.keys[0]) return a.keys[0] < b.keys[0] ? 1 : -1;
-    return b.quantity - a.quantity;
-  });
+  // 일별 품목별 피벗: 날짜=행, 품목(SKU/ASIN)=열, 월별 섹션 + 월 합계 2행.
+  // 품목 컬럼 순서는 품목별 표(itemRowsSorted)와 동일하게 매출 내림차순.
+  const itemColumns = itemRowsSorted.map((r) => r.keys[0]);
+  const pivotSections = buildDailyItemPivot(byDate.rows, byDateItem.rows, itemColumns);
 
   return (
     <>
@@ -472,33 +472,56 @@ export function SalesDashboard() {
         </div>
       </div>
 
-      {/* 일별 품목별 표 */}
+      {/* 일별 품목별 매출 현황 (피벗: 날짜=행, 품목=열) */}
       <div className="panel">
-        <h2>일별 품목별 ({itemAxis.toUpperCase()}, 마켓 현지시각 기준)</h2>
-        <div className="table-wrap">
-          <table className="data">
-            <thead>
-              <tr>
-                <th className="col-name">날짜</th>
-                <th className="col-name">품목</th>
-                <th className="col-key">키</th>
-                <th>수량</th>
-                <th>매출(통화별)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {dateItemRows.map((r) => (
-                <tr key={`${r.keys[0]} ${r.keys[1]}`}>
-                  <td>{r.keys[0]}</td>
-                  <ClipCell text={byDateItem.itemLabels?.[r.keys[1]] || r.keys[1]} />
-                  <ClipCell text={r.keys[1]} variant="key" />
-                  <td>{r.quantity.toLocaleString()}</td>
-                  <td>{formatMoneyMap(r.revenueByCurrency)}</td>
+        <h2>일별 품목별 매출 현황 ({itemAxis.toUpperCase()}, 마켓 현지시각 기준)</h2>
+        {pivotSections.map((sec) => (
+          <div key={sec.month} className="table-wrap" style={{ marginTop: 12 }}>
+            <div className="chart-title">{sec.month}</div>
+            <table className="data">
+              <thead>
+                <tr>
+                  <th className="col-name">날짜</th>
+                  <th>일 매출액</th>
+                  <th>총 판매수량</th>
+                  {itemColumns.map((key) => (
+                    <th key={key} title={byItem.itemLabels?.[key] || key}>
+                      {byItem.itemLabels?.[key] || key}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {sec.rows.map((row) => (
+                  <tr key={row.dateKey}>
+                    <td>{row.dateKey}</td>
+                    <td>{formatMoneyMap(row.dailyRevenue)}</td>
+                    <td>{row.dailyQty.toLocaleString()}</td>
+                    {row.cells.map((qty, i) => (
+                      <td key={itemColumns[i]}>{qty === null ? '\u2014' : qty.toLocaleString()}</td>
+                    ))}
+                  </tr>
+                ))}
+                <tr style={{ fontWeight: 600 }}>
+                  <td>월 판매량</td>
+                  <td>—</td>
+                  <td>{sec.totalQty.toLocaleString()}</td>
+                  {itemColumns.map((key) => (
+                    <td key={key}>{sec.itemQty[key].toLocaleString()}</td>
+                  ))}
+                </tr>
+                <tr style={{ fontWeight: 600 }}>
+                  <td>월 매출액</td>
+                  <td>{formatMoneyMap(sec.totalRevenue)}</td>
+                  <td>—</td>
+                  {itemColumns.map((key) => (
+                    <td key={key}>{formatMoneyMap(sec.itemRevenue[key])}</td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        ))}
       </div>
     </>
   );
