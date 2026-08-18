@@ -22,3 +22,4 @@ yarn-error.log*
 
 # harness fence instrumentation (never commit)
 .openclaw/
+.vercel

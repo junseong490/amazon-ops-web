@@ -155,6 +155,33 @@ describe('8. 인코딩 폴백 (LOCKED §3)', () => {
   });
 });
 
+describe('9. 일별×품목별 그룹핑 — 날짜+품목 조합별 수량 분리 (byDateItem)', () => {
+  it('같은 날 다른 품목 2개 / 같은 품목 다른 날 2개 → 조합별로 수량이 섞이지 않는다', () => {
+    const recs = parseRecords(US_HEADER, [
+      // 08-14: SKU-A 2개, SKU-B 5개
+      usRow({ 'purchase-date': '2026-08-14T18:00:00+00:00', sku: 'SKU-A', quantity: '2', 'item-price': '10.00', 'order-item-id': 'D1' }),
+      usRow({ 'purchase-date': '2026-08-14T18:00:00+00:00', sku: 'SKU-B', quantity: '5', 'item-price': '20.00', 'order-item-id': 'D2' }),
+      // 08-15: SKU-A 3개 (같은 품목이 다른 날)
+      usRow({ 'purchase-date': '2026-08-15T18:00:00+00:00', sku: 'SKU-A', quantity: '3', 'item-price': '10.00', 'order-item-id': 'D3' }),
+    ]);
+    const agg = aggregate(recs, ['date', 'item']);
+    // 3개의 (날짜,품목) 조합
+    expect(agg.rows).toHaveLength(3);
+    const find = (date: string, item: string) =>
+      agg.rows.find((r) => r.keys[0] === date && r.keys[1] === item);
+    // 전체 기간 합산이 아니라 날짜별로 분리 — SKU-A는 08-14/08-15가 별개 행
+    expect(find('2026-08-14', 'SKU-A')?.quantity).toBe(2);
+    expect(find('2026-08-15', 'SKU-A')?.quantity).toBe(3);
+    expect(find('2026-08-14', 'SKU-B')?.quantity).toBe(5);
+    // 08-15에 SKU-B는 없다
+    expect(find('2026-08-15', 'SKU-B')).toBeUndefined();
+    // keys 순서는 [dateKey, itemKey]
+    expect(agg.rows[0].keys.length).toBe(2);
+    // 품목 라벨이 채워진다 (groupBy에 'item' 포함)
+    expect(agg.itemLabels?.['SKU-A']).toBeDefined();
+  });
+});
+
 describe('보강: 파이프라인 바이트 경로 + 세금/배송 분리 (LOCKED §6)', () => {
   it('ingestOne: 바이트 → 레코드, 세금·배송이 매출과 분리 집계', () => {
     const tsv = makeTsv(US_HEADER, [

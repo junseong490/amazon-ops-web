@@ -98,6 +98,7 @@ export function SalesDashboard() {
   const byDate = useMemo(() => aggregate(records, ['date'], opts), [records, opts]);
   const byChannel = useMemo(() => aggregate(records, ['channel'], opts), [records, opts]);
   const byItem = useMemo(() => aggregate(records, ['item'], opts), [records, opts]);
+  const byDateItem = useMemo(() => aggregate(records, ['date', 'item'], opts), [records, opts]);
 
   const currencies = useMemo(
     () => Object.keys(byChannel.totals.revenueByCurrency).sort(),
@@ -152,11 +153,13 @@ export function SalesDashboard() {
   const itemRowsSorted = [...byItem.rows].sort(
     (a, b) => (b.revenueByCurrency[cur] || 0) - (a.revenueByCurrency[cur] || 0),
   );
-  const itemData = itemRowsSorted.slice(0, 10).map((r) => ({
-    item: byItem.itemLabels?.[r.keys[0]] || r.keys[0],
-    revenue: round2(r.revenueByCurrency[cur] || 0),
-  }));
   const curTotal = byItem.totals.revenueByCurrency[cur] || 0;
+
+  // 일별×품목별: 날짜 내림차순(최신 먼저), 같은 날짜 안에서는 수량 내림차순
+  const dateItemRows = [...byDateItem.rows].sort((a, b) => {
+    if (a.keys[0] !== b.keys[0]) return a.keys[0] < b.keys[0] ? 1 : -1;
+    return b.quantity - a.quantity;
+  });
 
   return (
     <>
@@ -376,28 +379,6 @@ export function SalesDashboard() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div className="chart-card">
-            <div className="chart-title">품목 Top 10 ({itemAxis.toUpperCase()})</div>
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={itemData} layout="vertical" margin={{ left: 40 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} />
-                <XAxis type="number" stroke={chart.axis} fontSize={11} />
-                <YAxis
-                  type="category"
-                  dataKey="item"
-                  stroke={chart.axis}
-                  fontSize={11}
-                  width={120}
-                />
-                <Tooltip
-                  cursor={{ fill: chart.grid }}
-                  formatter={(value) => formatMoney(Number(value), cur)}
-                  contentStyle={tooltipStyle(chart)}
-                />
-                <Bar dataKey="revenue" fill={chart.series[1]} radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
         </div>
       </div>
 
@@ -482,6 +463,35 @@ export function SalesDashboard() {
                 <tr key={r.keys[0]}>
                   <td>{r.keys[0]}</td>
                   <td>{r.orderCount.toLocaleString()}</td>
+                  <td>{r.quantity.toLocaleString()}</td>
+                  <td>{formatMoneyMap(r.revenueByCurrency)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 일별 품목별 표 */}
+      <div className="panel">
+        <h2>일별 품목별 ({itemAxis.toUpperCase()}, 마켓 현지시각 기준)</h2>
+        <div className="table-wrap">
+          <table className="data">
+            <thead>
+              <tr>
+                <th className="col-name">날짜</th>
+                <th className="col-name">품목</th>
+                <th className="col-key">키</th>
+                <th>수량</th>
+                <th>매출(통화별)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dateItemRows.map((r) => (
+                <tr key={`${r.keys[0]} ${r.keys[1]}`}>
+                  <td>{r.keys[0]}</td>
+                  <ClipCell text={byDateItem.itemLabels?.[r.keys[1]] || r.keys[1]} />
+                  <ClipCell text={r.keys[1]} variant="key" />
                   <td>{r.quantity.toLocaleString()}</td>
                   <td>{formatMoneyMap(r.revenueByCurrency)}</td>
                 </tr>

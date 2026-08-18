@@ -191,3 +191,6 @@ export function byDate(records: SalesRecord[], options?: Partial<AggregateOption
 export function byDateChannel(records: SalesRecord[], options?: Partial<AggregateOptions>) {
   return aggregate(records, ['date', 'channel'], options);
 }
+export function byDateItem(records: SalesRecord[], options?: Partial<AggregateOptions>) {
+  return aggregate(records, ['date', 'item'], options);
+}
