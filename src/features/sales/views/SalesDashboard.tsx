@@ -19,8 +19,10 @@ import type {
 } from '../../../types/domain';
 import { aggregate } from '../aggregate/aggregate';
 import { buildDailyItemPivot } from '../aggregate/pivot';
+import { resolveItemLabel } from '../aggregate/itemLabel';
 import { formatMoney, formatMoneyMap } from '../../../core/money/format';
 import { createDefaultSource } from '../../../core/store/dataSource';
+import { createDefaultSkuAliasSource } from '../../../core/store/skuAliasSource';
 import type { RawFile } from '../parse/pipeline';
 import { ingestFiles } from '../parse/pipeline';
 import { UploadPanel } from './UploadPanel';
@@ -29,12 +31,17 @@ import { CountUp } from '../../../components/CountUp';
 import { useChartTokens, tooltipStyle } from '../../../components/chartTokens';
 
 const source = createDefaultSource();
+const aliasSource = createDefaultSkuAliasSource();
 
 export function SalesDashboard() {
   const chart = useChartTokens();
   const [records, setRecords] = useState<SalesRecord[]>([]);
   const [perFile, setPerFile] = useState<ParseResult[]>([]);
   const [busy, setBusy] = useState(false);
+  // 데이터가 있을 때 업로드 드롭존 펼침/접힘. 빈 상태에선 무시(항상 펼침).
+  const [uploadExpanded, setUploadExpanded] = useState(false);
+  // SKU/ASIN별 사용자 별칭(짧은 이름). 마운트 시 영구 저장소에서 복원.
+  const [aliases, setAliases] = useState<Record<string, string>>({});
 
   // 필터 상태
   const [revenueMode, setRevenueMode] = useState<RevenueMode>('gross');
@@ -45,6 +52,8 @@ export function SalesDashboard() {
   const [dateTo, setDateTo] = useState('');
   const [showTaxShipping, setShowTaxShipping] = useState(false);
   const [chartCurrency, setChartCurrency] = useState<string>('');
+  // 아래 표 영역을 탭으로 분리(세로 길이 축소). 기본: 국가·품목별.
+  const [tableTab, setTableTab] = useState<'market' | 'daily' | 'daily-item'>('market');
 
   // 초기 로드: IndexedDB 캐시 복원
   useEffect(() => {
@@ -57,6 +66,28 @@ export function SalesDashboard() {
         /* 캐시 없음/미지원 — 무시 */
       });
   }, []);
+
+  // 초기 로드: 별칭 영구 저장소 복원
+  useEffect(() => {
+    aliasSource
+      .loadAliases()
+      .then((a) => setAliases(a))
+      .catch(() => {
+        /* 저장소 없음/미지원 — 무시 */
+      });
+  }, []);
+
+  // 별칭 편집: 빈 문자열이면 삭제(원본 이름으로 복귀). 로컬 상태 + 영구 저장 동시 갱신.
+  function handleAliasChange(key: string, value: string) {
+    const trimmed = value.trim();
+    setAliases((prev) => {
+      const next = { ...prev };
+      if (trimmed === '') delete next[key];
+      else next[key] = trimmed;
+      return next;
+    });
+    void aliasSource.saveAlias(key, trimmed).catch(() => undefined);
+  }
 
   async function handleFiles(files: RawFile[]) {
     setBusy(true);
@@ -165,15 +196,22 @@ export function SalesDashboard() {
     <>
       <div className="panel">
         <h2>업로드</h2>
-        <UploadPanel onFiles={handleFiles} busy={busy} />
         <div className="loaded-bar">
           <span className="muted">
             {perFile.length}개 파일 · {records.length}개 라인 로드됨
           </span>
+          <button className="btn" onClick={() => setUploadExpanded((v) => !v)}>
+            {uploadExpanded ? '접기' : '파일 추가'}
+          </button>
           <button className="btn" onClick={reset}>
             초기화
           </button>
         </div>
+        {uploadExpanded && (
+          <div style={{ marginTop: 12 }}>
+            <UploadPanel onFiles={handleFiles} busy={busy} />
+          </div>
+        )}
         {totalIssues > 0 && (
           <details className="issues">
             <summary>파싱 알림 {totalIssues}건 (인코딩 폴백/스킵/헤더)</summary>
@@ -345,7 +383,7 @@ export function SalesDashboard() {
         <div className="chart-grid">
           <div className="chart-card">
             <div className="chart-title">일별 매출 추이</div>
-            <ResponsiveContainer width="100%" height={240}>
+            <ResponsiveContainer width="100%" height={200}>
               <BarChart data={dailyData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} />
                 <XAxis dataKey="date" stroke={chart.axis} fontSize={11} />
@@ -361,7 +399,7 @@ export function SalesDashboard() {
           </div>
           <div className="chart-card">
             <div className="chart-title">국가/마켓별 매출</div>
-            <ResponsiveContainer width="100%" height={240}>
+            <ResponsiveContainer width="100%" height={200}>
               <BarChart data={channelData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} />
                 <XAxis dataKey="channel" stroke={chart.axis} fontSize={11} />
@@ -382,7 +420,11 @@ export function SalesDashboard() {
         </div>
       </div>
 
-      {/* 국가별 표 */}
+      {/* 표 영역: 3블록을 탭으로 분리(세로 길이 축소) */}
+      <SalesTableTabs active={tableTab} onChange={setTableTab} />
+
+      {/* 탭 1: 국가·품목별 — 좁은 두 표를 2열로 나란히 배치 */}
+      <div className="chart-grid" style={{ display: tableTab === 'market' ? undefined : 'none' }}>
       <div className="panel">
         <h2>국가/마켓별</h2>
         <div className="table-wrap">
@@ -422,6 +464,7 @@ export function SalesDashboard() {
               <tr>
                 <th className="col-name">품목</th>
                 <th className="col-key">키</th>
+                <th className="col-name">별칭(짧은 이름)</th>
                 <th>수량</th>
                 <th>매출(통화별)</th>
                 <th>기여율({cur})</th>
@@ -430,10 +473,25 @@ export function SalesDashboard() {
             <tbody>
               {itemRowsSorted.map((r) => {
                 const share = curTotal > 0 ? ((r.revenueByCurrency[cur] || 0) / curTotal) * 100 : 0;
+                const key = r.keys[0];
+                const original = byItem.itemLabels?.[key] || key;
                 return (
-                  <tr key={r.keys[0]}>
-                    <ClipCell text={byItem.itemLabels?.[r.keys[0]] || r.keys[0]} />
-                    <ClipCell text={r.keys[0]} variant="key" />
+                  <tr key={key}>
+                    <ClipCell text={original} />
+                    <ClipCell text={key} variant="key" />
+                    <td>
+                      <input
+                        type="text"
+                        style={{ width: '100%', minWidth: 120, boxSizing: 'border-box' }}
+                        value={aliases[key] ?? ''}
+                        placeholder={original}
+                        aria-label={`${key} 별칭`}
+                        onChange={(e) =>
+                          setAliases((prev) => ({ ...prev, [key]: e.target.value }))
+                        }
+                        onBlur={(e) => handleAliasChange(key, e.target.value)}
+                      />
+                    </td>
                     <td>{r.quantity.toLocaleString()}</td>
                     <td>{formatMoneyMap(r.revenueByCurrency)}</td>
                     <td>{share.toFixed(1)}%</td>
@@ -445,8 +503,10 @@ export function SalesDashboard() {
         </div>
       </div>
 
-      {/* 일별 표 */}
-      <div className="panel">
+      </div>
+
+      {/* 탭 2: 일별 표 */}
+      <div className="panel" style={{ display: tableTab === 'daily' ? undefined : 'none' }}>
         <h2>일별 (마켓 현지시각 기준)</h2>
         <div className="table-wrap">
           <table className="data">
@@ -472,8 +532,8 @@ export function SalesDashboard() {
         </div>
       </div>
 
-      {/* 일별 품목별 매출 현황 (피벗: 날짜=행, 품목=열) */}
-      <div className="panel">
+      {/* 탭 3: 일별 품목별 매출 현황 (피벗: 날짜=행, 품목=열) */}
+      <div className="panel" style={{ display: tableTab === 'daily-item' ? undefined : 'none' }}>
         <h2>일별 품목별 매출 현황 ({itemAxis.toUpperCase()}, 마켓 현지시각 기준)</h2>
         {pivotSections.map((sec) => (
           <div key={sec.month} className="table-wrap" style={{ marginTop: 12 }}>
@@ -486,7 +546,7 @@ export function SalesDashboard() {
                   <th>총 판매수량</th>
                   {itemColumns.map((key) => (
                     <th key={key} title={byItem.itemLabels?.[key] || key}>
-                      {byItem.itemLabels?.[key] || key}
+                      {resolveItemLabel(key, aliases, byItem.itemLabels)}
                     </th>
                   ))}
                 </tr>
@@ -524,6 +584,68 @@ export function SalesDashboard() {
         ))}
       </div>
     </>
+  );
+}
+
+type TableTab = 'market' | 'daily' | 'daily-item';
+
+// 표 영역 탭 전환용 세그먼트 컨트롤. 전역 클래스 추가 없이 로컬 인라인 스타일로만 구성
+// (index.css 불변 요구). macOS 사이드바 네비 톤(선택 시 accent 강조)에 맞춤.
+function SalesTableTabs({
+  active,
+  onChange,
+}: {
+  active: TableTab;
+  onChange: (t: TableTab) => void;
+}) {
+  const tabs: { id: TableTab; label: string }[] = [
+    { id: 'market', label: '국가·품목별' },
+    { id: 'daily', label: '일별' },
+    { id: 'daily-item', label: '일별 품목별' },
+  ];
+  return (
+    <div
+      role="tablist"
+      aria-label="표 보기 전환"
+      style={{
+        display: 'flex',
+        gap: 4,
+        flexWrap: 'wrap',
+        padding: 4,
+        marginBottom: 'var(--sp-4)',
+        background: 'var(--bg-subtle)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-card)',
+        width: 'fit-content',
+      }}
+    >
+      {tabs.map((t) => {
+        const on = active === t.id;
+        return (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            onClick={() => onChange(t.id)}
+            style={{
+              padding: '7px 16px',
+              borderRadius: 8,
+              border: '1px solid transparent',
+              cursor: 'pointer',
+              fontSize: 13.5,
+              fontWeight: on ? 700 : 500,
+              color: on ? 'var(--accent)' : 'var(--muted)',
+              background: on ? 'var(--bg)' : 'transparent',
+              boxShadow: on ? 'var(--e1)' : 'none',
+              transition: 'color 120ms ease, background 120ms ease',
+            }}
+          >
+            {t.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

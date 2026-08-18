@@ -6,6 +6,12 @@ import { parseTable } from '../src/features/sales/parse/parse';
 import { ingestOne } from '../src/features/sales/parse/pipeline';
 import { aggregate } from '../src/features/sales/aggregate/aggregate';
 import { buildDailyItemPivot } from '../src/features/sales/aggregate/pivot';
+import { resolveItemLabel } from '../src/features/sales/aggregate/itemLabel';
+import {
+  InMemoryAliasSource,
+  LocalStorageAliasSource,
+  ALIAS_STORAGE_KEY,
+} from '../src/core/store/skuAliasSource';
 import type { SalesRecord } from '../src/types/domain';
 import {
   JP_HEADER,
@@ -261,5 +267,63 @@ describe('보강: 파이프라인 바이트 경로 + 세금/배송 분리 (LOCKE
     expect(agg.totals.revenueByCurrency.USD).toBeCloseTo(10.0, 5); // 세·배송 미포함
     expect(agg.totals.taxByCurrency.USD).toBeCloseTo(1.5, 5);
     expect(agg.totals.shippingByCurrency.USD).toBeCloseTo(3.0, 5);
+  });
+});
+
+/** 최소 Storage 목 — localStorage 없는 node 환경에서 LocalStorageAliasSource 검증용. */
+function makeMockStorage(): Storage {
+  const map = new Map<string, string>();
+  return {
+    get length() {
+      return map.size;
+    },
+    clear: () => map.clear(),
+    getItem: (k: string) => (map.has(k) ? (map.get(k) as string) : null),
+    key: (i: number) => Array.from(map.keys())[i] ?? null,
+    removeItem: (k: string) => void map.delete(k),
+    setItem: (k: string, v: string) => void map.set(k, String(v)),
+  } as Storage;
+}
+
+describe('별칭 저장소 — save 후 load 유지 / 빈 문자열 삭제', () => {
+  it('InMemoryAliasSource: 저장→로드 유지, 빈 문자열이면 삭제', async () => {
+    const src = new InMemoryAliasSource();
+    await src.saveAlias('SKU-LONG-1', '짧은이름');
+    expect(await src.loadAliases()).toEqual({ 'SKU-LONG-1': '짧은이름' });
+    await src.saveAlias('SKU-LONG-1', '');
+    expect(await src.loadAliases()).toEqual({});
+  });
+
+  it('LocalStorageAliasSource: 단일 JSON 키에 영속, 새 인스턴스로도 복원', async () => {
+    const storage = makeMockStorage();
+    const a = new LocalStorageAliasSource(storage);
+    await a.saveAlias('SKU-X', 'X별칭');
+    await a.saveAlias('SKU-Y', 'Y별칭');
+    // 실제 저장은 단일 키(JSON)에.
+    expect(storage.getItem(ALIAS_STORAGE_KEY)).toBe(
+      JSON.stringify({ 'SKU-X': 'X별칭', 'SKU-Y': 'Y별칭' }),
+    );
+    // 새 인스턴스(=새로고침 시뮬)에서도 그대로 복원.
+    const b = new LocalStorageAliasSource(storage);
+    expect(await b.loadAliases()).toEqual({ 'SKU-X': 'X별칭', 'SKU-Y': 'Y별칭' });
+    // 빈 문자열 저장 → 해당 키만 삭제.
+    await b.saveAlias('SKU-X', '');
+    expect(await b.loadAliases()).toEqual({ 'SKU-Y': 'Y별칭' });
+  });
+});
+
+describe('라벨 우선순위 — 별칭 > 원본 제품명 > 키', () => {
+  const itemLabels = { 'SKU-1': '아주 긴 원본 제품명 Deluxe Edition' };
+  it('별칭이 있으면 별칭', () => {
+    expect(resolveItemLabel('SKU-1', { 'SKU-1': '별칭A' }, itemLabels)).toBe('별칭A');
+  });
+  it('별칭 없거나 빈 문자열이면 원본 제품명', () => {
+    expect(resolveItemLabel('SKU-1', {}, itemLabels)).toBe('아주 긴 원본 제품명 Deluxe Edition');
+    expect(resolveItemLabel('SKU-1', { 'SKU-1': '' }, itemLabels)).toBe(
+      '아주 긴 원본 제품명 Deluxe Edition',
+    );
+  });
+  it('별칭·원본 둘 다 없으면 키', () => {
+    expect(resolveItemLabel('SKU-2', {}, itemLabels)).toBe('SKU-2');
   });
 });
