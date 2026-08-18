@@ -25,6 +25,7 @@ export function AdsWorkspace() {
   const [selectedNew, setSelectedNew] = useState<Set<string>>(new Set());
   const [selectedNeg, setSelectedNeg] = useState<Set<string>>(new Set());
   const [genError, setGenError] = useState<string | null>(null);
+  const [tab, setTab] = useState<AdsTab>('bid');
 
   function handleFile(name: string, bytes: Uint8Array) {
     setError(null);
@@ -172,43 +173,118 @@ export function AdsWorkspace() {
 
       {workbook && (
         <>
-          <AdsParams
-            params={params}
-            onChange={(patch) => setParams((p) => ({ ...p, ...patch }))}
-            negativeCandidateClicks={negativeClicks}
-            onNegativeClicksChange={setNegativeClicks}
-          />
-          <KeywordTable
-            rows={views}
-            userBidStr={userBidStr}
-            acosStr={acosStr}
-            onUserBid={(ri, v) => setUserBidStr((m) => ({ ...m, [ri]: v }))}
-            onAcosOverride={(ri, v) => setAcosStr((m) => ({ ...m, [ri]: v }))}
-          />
-          <SearchTermPanel
-            newKeywords={suggestions.newKeywords}
-            negatives={suggestions.negatives}
-            selectedNew={selectedNew}
-            selectedNeg={selectedNeg}
-            onToggleNew={(t) => setSelectedNew((s) => toggle(s, t))}
-            onToggleNeg={(t) => setSelectedNeg((s) => toggle(s, t))}
-            onSelectAllNew={(on) =>
-              setSelectedNew(on ? new Set(suggestions.newKeywords.map((k) => k.customerSearchTerm)) : new Set())
-            }
-            onSelectAllNeg={(on) =>
-              setSelectedNeg(on ? new Set(suggestions.negatives.map((n) => n.customerSearchTerm)) : new Set())
-            }
-            disabled={workbook.searchTerms.length === 0}
-          />
-          <ReviewDownload
-            bidChangeCount={bidChanges.length}
-            newKeywordCount={selectedNewList.length}
-            negativeCount={selectedNegList.length}
-            onGenerate={handleGenerate}
-            error={genError}
-          />
+          <AdsTabs active={tab} onChange={setTab} />
+
+          {/* 탭 1 "입찰 조정": 파라미터 + 키워드 효율표. 언마운트하지 않고 display만 토글해 입력 상태 보존 */}
+          <div style={{ display: tab === 'bid' ? undefined : 'none' }}>
+            <AdsParams
+              params={params}
+              onChange={(patch) => setParams((p) => ({ ...p, ...patch }))}
+              negativeCandidateClicks={negativeClicks}
+              onNegativeClicksChange={setNegativeClicks}
+            />
+            <KeywordTable
+              rows={views}
+              userBidStr={userBidStr}
+              acosStr={acosStr}
+              onUserBid={(ri, v) => setUserBidStr((m) => ({ ...m, [ri]: v }))}
+              onAcosOverride={(ri, v) => setAcosStr((m) => ({ ...m, [ri]: v }))}
+            />
+          </div>
+
+          {/* 탭 2 "검색어 제안" */}
+          <div style={{ display: tab === 'search' ? undefined : 'none' }}>
+            <SearchTermPanel
+              newKeywords={suggestions.newKeywords}
+              negatives={suggestions.negatives}
+              selectedNew={selectedNew}
+              selectedNeg={selectedNeg}
+              onToggleNew={(t) => setSelectedNew((s) => toggle(s, t))}
+              onToggleNeg={(t) => setSelectedNeg((s) => toggle(s, t))}
+              onSelectAllNew={(on) =>
+                setSelectedNew(on ? new Set(suggestions.newKeywords.map((k) => k.customerSearchTerm)) : new Set())
+              }
+              onSelectAllNeg={(on) =>
+                setSelectedNeg(on ? new Set(suggestions.negatives.map((n) => n.customerSearchTerm)) : new Set())
+              }
+              disabled={workbook.searchTerms.length === 0}
+            />
+          </div>
+
+          {/* 탭 3 "검토·다운로드" */}
+          <div style={{ display: tab === 'review' ? undefined : 'none' }}>
+            <ReviewDownload
+              bidChangeCount={bidChanges.length}
+              newKeywordCount={selectedNewList.length}
+              negativeCount={selectedNegList.length}
+              onGenerate={handleGenerate}
+              error={genError}
+            />
+          </div>
         </>
       )}
     </>
+  );
+}
+
+type AdsTab = 'bid' | 'search' | 'review';
+
+// 광고 화면 탭 전환용 세그먼트 컨트롤. 매출 화면(SalesTableTabs)과 동일한 방식/스타일 —
+// index.css 불변 요구에 따라 전역 클래스 없이 로컬 인라인 스타일로만 구성.
+function AdsTabs({
+  active,
+  onChange,
+}: {
+  active: AdsTab;
+  onChange: (t: AdsTab) => void;
+}) {
+  const tabs: { id: AdsTab; label: string }[] = [
+    { id: 'bid', label: '입찰 조정' },
+    { id: 'search', label: '검색어 제안' },
+    { id: 'review', label: '검토·다운로드' },
+  ];
+  return (
+    <div
+      role="tablist"
+      aria-label="광고 작업 보기 전환"
+      style={{
+        display: 'flex',
+        gap: 4,
+        flexWrap: 'wrap',
+        padding: 4,
+        marginBottom: 'var(--sp-4)',
+        background: 'var(--bg-subtle)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-card)',
+        width: 'fit-content',
+      }}
+    >
+      {tabs.map((t) => {
+        const on = active === t.id;
+        return (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            onClick={() => onChange(t.id)}
+            style={{
+              padding: '7px 16px',
+              borderRadius: 8,
+              border: '1px solid transparent',
+              cursor: 'pointer',
+              fontSize: 13.5,
+              fontWeight: on ? 700 : 500,
+              color: on ? 'var(--accent)' : 'var(--muted)',
+              background: on ? 'var(--bg)' : 'transparent',
+              boxShadow: on ? 'var(--e1)' : 'none',
+              transition: 'color 120ms ease, background 120ms ease',
+            }}
+          >
+            {t.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }

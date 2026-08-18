@@ -15,6 +15,7 @@ import {
 import { createScenarioStore } from '../data/pricingStore';
 import { defaultScenario } from '../data/template';
 import type { CostBasis, CostItem, Scenario } from '../types';
+import { formatMoney } from '../../../core/money/format';
 import { ResultPanel } from './ResultPanel';
 import { BASIS_META, BASIS_ORDER, num, toPercentInput } from './shared';
 
@@ -98,6 +99,8 @@ function ItemRow({
 export function PricingSimulator() {
   const [scenario, setScenario] = useState<Scenario>(() => defaultScenario());
   const [loaded, setLoaded] = useState(false);
+  // 카테고리 접기/펼치기: id별 명시 상태. 미지정(undefined)이면 "첫 카테고리만 펼침" 기본값 적용.
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   // 최초 로드: 저장분 있으면 복원, 없으면 템플릿 유지.
   useEffect(() => {
@@ -128,11 +131,25 @@ export function PricingSimulator() {
   }, [scenario, loaded]);
 
   const result = useMemo(() => compute(scenario), [scenario]);
+  // 카테고리 id → 단위당 소계(접힘 요약용). compute 결과 재사용(새 계산 로직 없음).
+  const subtotalById = useMemo(
+    () => new Map(result.categorySubtotals.map((c) => [c.id, c.subtotal])),
+    [result],
+  );
 
   const resetTemplate = () => {
     const fresh = defaultScenario();
     setScenario(fresh);
+    setExpanded({}); // 기본값(첫 카테고리만 펼침)으로 복귀
     store.save(fresh).catch(() => {});
+  };
+
+  // 카테고리 추가 시 방금 만든 카테고리는 바로 편집하도록 펼친 상태로.
+  const handleAddCategory = () => {
+    const next = addCategory(scenario);
+    const newCat = next.categories[next.categories.length - 1];
+    setScenario(next);
+    if (newCat) setExpanded((e) => ({ ...e, [newCat.id]: true }));
   };
 
   return (
@@ -176,60 +193,82 @@ export function PricingSimulator() {
       <div className="panel">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2>비용 카테고리 · 항목</h2>
-          <button className="btn" onClick={() => setScenario((s) => addCategory(s))}>+ 카테고리 추가</button>
+          <button className="btn" onClick={handleAddCategory}>+ 카테고리 추가</button>
         </div>
 
-        {scenario.categories.map((cat) => (
-          <div key={cat.id} className="chart-card" style={{ marginTop: 12 }}>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-              <input
-                type="text"
-                value={cat.name}
-                aria-label="카테고리 이름"
-                style={{ fontWeight: 600, flex: '0 0 200px' }}
-                onChange={(e) => setScenario((s) => renameCategory(s, cat.id, e.target.value))}
-              />
-              <button className="btn" onClick={() => setScenario((s) => addItem(s, cat.id))}>+ 항목</button>
-              <button
-                className="btn"
-                style={{ marginLeft: 'auto' }}
-                onClick={() => setScenario((s) => removeCategory(s, cat.id))}
-                title="카테고리 삭제"
-              >
-                카테고리 삭제
-              </button>
+        {scenario.categories.map((cat, idx) => {
+          // 명시 상태 우선, 없으면 첫 카테고리만 펼침(기본).
+          const isExpanded = expanded[cat.id] ?? idx === 0;
+          const subtotal = subtotalById.get(cat.id) ?? 0;
+          return (
+            <div key={cat.id} className="chart-card" style={{ marginTop: 12 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: isExpanded ? 8 : 0 }}>
+                <button
+                  className="btn"
+                  aria-expanded={isExpanded}
+                  aria-label={isExpanded ? '카테고리 접기' : '카테고리 펼치기'}
+                  title={isExpanded ? '접기' : '펼치기'}
+                  style={{ flex: '0 0 auto', minWidth: 34 }}
+                  onClick={() => setExpanded((e) => ({ ...e, [cat.id]: !isExpanded }))}
+                >
+                  {isExpanded ? '▾' : '▸'}
+                </button>
+                <input
+                  type="text"
+                  value={cat.name}
+                  aria-label="카테고리 이름"
+                  style={{ fontWeight: 600, flex: '0 0 200px' }}
+                  onChange={(e) => setScenario((s) => renameCategory(s, cat.id, e.target.value))}
+                />
+                <button className="btn" onClick={() => setScenario((s) => addItem(s, cat.id))}>+ 항목</button>
+                {!isExpanded && (
+                  <span className="muted" style={{ fontSize: 'var(--fs-12)' }}>
+                    항목 {cat.items.length}개 · 소계 {formatMoney(subtotal, scenario.currency)}
+                  </span>
+                )}
+                <button
+                  className="btn"
+                  style={{ marginLeft: 'auto' }}
+                  onClick={() => setScenario((s) => removeCategory(s, cat.id))}
+                  title="카테고리 삭제"
+                >
+                  카테고리 삭제
+                </button>
+              </div>
+              {isExpanded && (
+                <div className="table-wrap">
+                  <table className="data">
+                    <thead>
+                      <tr>
+                        <th style={{ minWidth: 140 }}>항목</th>
+                        <th style={{ minWidth: 140 }}>계산 기준</th>
+                        <th style={{ minWidth: 120 }}>값</th>
+                        <th title="상품원가(COGS) 합계 포함 여부">원가 포함</th>
+                        <th />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cat.items.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="muted">항목이 없습니다. “+ 항목”으로 추가하세요.</td>
+                        </tr>
+                      ) : (
+                        cat.items.map((item) => (
+                          <ItemRow
+                            key={item.id}
+                            item={item}
+                            onChange={(patch) => setScenario((s) => updateItem(s, cat.id, item.id, patch))}
+                            onRemove={() => setScenario((s) => removeItem(s, cat.id, item.id))}
+                          />
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
-            <div className="table-wrap">
-              <table className="data">
-                <thead>
-                  <tr>
-                    <th style={{ minWidth: 140 }}>항목</th>
-                    <th style={{ minWidth: 140 }}>계산 기준</th>
-                    <th style={{ minWidth: 120 }}>값</th>
-                    <th title="상품원가(COGS) 합계 포함 여부">원가 포함</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {cat.items.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="muted">항목이 없습니다. “+ 항목”으로 추가하세요.</td>
-                    </tr>
-                  ) : (
-                    cat.items.map((item) => (
-                      <ItemRow
-                        key={item.id}
-                        item={item}
-                        onChange={(patch) => setScenario((s) => updateItem(s, cat.id, item.id, patch))}
-                        onRemove={() => setScenario((s) => removeItem(s, cat.id, item.id))}
-                      />
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ))}
+          );
+        })}
         <p className="muted" style={{ fontSize: 'var(--fs-12)', marginTop: 10 }}>
           계산 기준: <strong>단위당 금액</strong>=개당 절대비용 · <strong>판매가 %</strong>=판매가 비례(수수료·광고) ·{' '}
           <strong>원가 %</strong>=상품원가 비례(관세 등). 항목·카테고리는 자유롭게 추가·삭제·편집하세요.

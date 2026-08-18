@@ -93,9 +93,11 @@ export function KeywordTable({ rows, userBidStr, acosStr, onUserBid, onAcosOverr
         </div>
       </div>
 
-      <div className="table-wrap" style={{ marginTop: 8 }}>
+      {/* 세로 스크롤 캡: index.css의 공용 .table-wrap은 불변이라 이 표에만 인라인으로 적용.
+          행이 많아도 페이지가 무한정 길어지지 않도록 maxHeight + overflowY로 제한. */}
+      <div className="table-wrap" style={{ marginTop: 8, maxHeight: 560, overflowY: 'auto' }}>
         <table className="data">
-          <thead>
+          <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
             <tr>
               <th className="col-name">키워드 / 타겟</th>
               <th>매치</th>
