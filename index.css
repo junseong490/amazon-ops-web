@@ -32,26 +32,26 @@
 :root {
   color-scheme: light;
 
-  /* --- 배경/표면 --- */
-  --app-bg: #f2f2f5;          /* 페이지 단일 밝은 회색 (macOS 데스크톱) */
+  /* --- 배경/표면 (Horizon UI 톤) --- */
+  --app-bg: #f4f7fe;          /* 페이지 배경 — 옅은 연보라 (목업 --bg) */
   --bg: #ffffff;              /* 카드/패널 표면 (솔리드 화이트) */
-  --bg-subtle: #f4f4f8;       /* 옅은 채움(thead/칩/코드) */
-  --sidebar-bg: #ececf0;      /* 사이드바 밝은 회색 (다크 아님) */
-  --sidebar-border: #e0e0e5;
+  --bg-subtle: #f4f7fe;       /* 옅은 채움(thead/칩/코드) */
+  --sidebar-bg: #ffffff;      /* 흰 사이드바 (목업) */
+  --sidebar-border: #eef0f6;  /* 아주 옅은 구분선 */
 
-  /* --- 잉크 --- */
-  --ink: #0b0b12;
-  --ink-secondary: #64646f;
-  --ink-faint: #9c9ca3;
+  /* --- 잉크 (네이비 톤) --- */
+  --ink: #1b2559;             /* 목업 --ink */
+  --ink-secondary: #a3aed0;   /* 목업 --ink-2 */
+  --ink-faint: #a3aed0;
 
   /* --- 보더 --- */
   --border: #e8e9f0;
   --border-strong: #dcdce4;
 
   /* --- 액센트/상태 --- */
-  --accent: #3355ff;
-  --accent-hover: #2445e0;
-  --accent-soft: #eef1ff;
+  --accent: #4318ff;          /* 목업 --purple */
+  --accent-hover: #3311cc;
+  --accent-soft: #f4f0ff;     /* 목업 --purple-soft */
   --on-accent: #ffffff;
   --purple: #7b5cff;
   --success: #0f9d58;
@@ -69,18 +69,18 @@
   --grad-pink: linear-gradient(150deg, #ec6b93, #d02361);
   --bar-fill: linear-gradient(180deg, #7b93ff, #3355ff 70%, #7b5cff);
 
-  /* --- 형태 --- */
-  --radius-card: 16px;
-  --radius-sm: 9px;
+  /* --- 형태 (Horizon: 크고 부드러운 라운드) --- */
+  --radius-card: 20px;
+  --radius-sm: 12px;
   --radius-pill: 999px;
 
-  /* --- 그림자 — 다층(주변광+근접광), blur/반투명 없음 --- */
-  --e1: 0 1px 1px rgba(20, 20, 50, 0.03), 0 2px 5px rgba(20, 20, 50, 0.05);
-  --e2: 0 1px 2px rgba(20, 20, 50, 0.04), 0 8px 20px -6px rgba(20, 20, 50, 0.12),
-    0 2px 6px rgba(20, 20, 50, 0.06);
-  --e3: 0 2px 4px rgba(20, 20, 50, 0.05), 0 16px 32px -8px rgba(20, 20, 50, 0.16),
-    0 4px 10px rgba(20, 20, 50, 0.08);
-  --glow-accent: 0 10px 24px -8px rgba(51, 85, 255, 0.35);
+  /* --- 그림자 — Horizon 부드러운 블루그레이 확산광 --- */
+  --e1: 0 2px 8px rgba(112, 144, 176, 0.10);
+  --e2: 0 4px 12px rgba(112, 144, 176, 0.10),
+    0 18px 40px -12px rgba(112, 144, 176, 0.16);
+  --e3: 0 8px 18px rgba(112, 144, 176, 0.12),
+    0 30px 60px -16px rgba(112, 144, 176, 0.20);
+  --glow-accent: 0 10px 24px -8px rgba(67, 24, 255, 0.35);
   --shadow-card: var(--e2);
   --shadow-frame: var(--e3);
   --shadow-pop: var(--e2);
@@ -240,10 +240,10 @@ a:hover {
   color: var(--ink);
 }
 .side-navitem.active {
-  background: var(--grad-brand-135);
-  color: #fff;
+  background: var(--accent-soft);
+  color: var(--ink);
   font-weight: 700;
-  box-shadow: 0 4px 10px -4px rgba(51, 85, 255, 0.5);
+  box-shadow: none;
 }
 .side-navitem .dot {
   width: 6px;
@@ -251,6 +251,11 @@ a:hover {
   border-radius: 999px;
   background: currentColor;
   opacity: 0.6;
+}
+.side-navitem.active .dot {
+  background: var(--accent);
+  opacity: 1;
+  box-shadow: 0 0 0 4px rgba(67, 24, 255, 0.12);
 }
 .side-section {
   font-size: 10.5px;
@@ -378,38 +383,43 @@ a:hover {
   box-shadow: var(--e2);
   overflow: hidden;
 }
-/* 라운드스퀘어 그라디언트 아이콘 배지 + 흰 stroke 라인아이콘 */
+/* 라운드스퀘어 옅은 틴트 배지 + 컬러 라인아이콘 (Horizon 톤) */
 .kpi-badge {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 10px;
-  box-shadow: 0 4px 10px -4px rgba(20, 20, 50, 0.28);
-  background: var(--grad-blue);
+  box-shadow: none;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 .kpi-badge svg {
-  width: 17px;
-  height: 17px;
-  stroke: #fff;
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
   fill: none;
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 .kpi-badge.g-blue {
-  background: var(--grad-blue);
+  background: #f0f0ff;
+  color: #4318ff;
 }
 .kpi-badge.g-orange {
-  background: var(--grad-orange);
+  background: #fff2e9;
+  color: #e8642c;
 }
 .kpi-badge.g-green {
-  background: var(--grad-green);
+  background: #e6faf1;
+  color: #01b574;
 }
 .kpi-badge.g-pink {
-  background: var(--grad-pink);
+  background: #fdecf4;
+  color: #d63384;
 }
 .kpi-card .label {
   color: var(--ink-secondary);
