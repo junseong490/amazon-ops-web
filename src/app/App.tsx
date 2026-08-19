@@ -25,30 +25,41 @@ const NAV: NavItem[] = [
 
 function Layout({ children }: { children: ReactNode }) {
   return (
-    <div className="app-shell">
-      {/* 좌측 고정 사이드바 — macOS 시스템 설정 스타일(밝은 회색, 다크 아님) */}
-      <aside className="app-sidebar">
-        <Link to="/" className="side-brand" aria-label="홈으로">
-          <span className="side-mark" aria-hidden="true" />
+    <div className="command-shell">
+      {/* 상단 가로 커맨드바 — Seller Command Deck 톤(밝은 서류면 + 보라 그라디언트 액센트) */}
+      <header className="command-header">
+        <Link to="/" className="command-brand" aria-label="홈으로">
+          <span className="side-mark" aria-hidden="true">
+            A
+          </span>
           Amazon 셀러 콘솔
         </Link>
-        <nav className="side-nav" aria-label="주요 메뉴">
+        <nav className="command-nav" aria-label="주요 메뉴">
           {NAV.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
-              className={({ isActive }) => (isActive ? 'side-navitem active' : 'side-navitem')}
+              className={({ isActive }) =>
+                isActive ? 'command-nav-item active' : 'command-nav-item'
+              }
             >
-              <span className="dot" aria-hidden="true" />
               {item.label}
               {item.badge && <span className="nav-badge">{item.badge}</span>}
             </NavLink>
           ))}
         </nav>
-        <div className="side-section">워크스페이스</div>
-        <p className="side-foot">데이터는 브라우저를 벗어나지 않습니다.</p>
-      </aside>
-      <main className="app-main">
+        {/* 우측: 무기능 장식(알림 점·프로필) 대신, 앱이 실제로 지키는 사실만 배지로 노출 */}
+        <div className="command-header-actions">
+          <span className="analyst-note">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+              <path d="m9 12 2 2 4-4" />
+            </svg>
+            데이터는 브라우저를 벗어나지 않습니다
+          </span>
+        </div>
+      </header>
+      <main className="command-main">
         <div className="route-view">{children}</div>
       </main>
     </div>

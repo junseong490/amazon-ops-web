@@ -32,28 +32,30 @@
 :root {
   color-scheme: light;
 
-  /* --- 배경/표면 (Horizon UI 톤) --- */
-  --app-bg: #f4f7fe;          /* 페이지 배경 — 옅은 연보라 (목업 --bg) */
+  /* --- 배경/표면 (Seller Command Deck 톤) --- */
+  --app-bg: #f8f9fc;          /* 페이지 베이스 (참고 --canvas) */
   --bg: #ffffff;              /* 카드/패널 표면 (솔리드 화이트) */
-  --bg-subtle: #f4f7fe;       /* 옅은 채움(thead/칩/코드) */
-  --sidebar-bg: #ffffff;      /* 흰 사이드바 (목업) */
-  --sidebar-border: #eef0f6;  /* 아주 옅은 구분선 */
+  --bg-subtle: #f4f6fa;       /* 옅은 채움(thead/칩/코드) */
+  --sidebar-bg: rgba(255, 255, 255, 0.94); /* 의미 전환: 사이드바→상단 헤더 배경(command-header) */
+  --sidebar-border: #e9ebf1;  /* 헤더 하단 구분선 (참고 --line) */
 
-  /* --- 잉크 (네이비 톤) --- */
-  --ink: #1b2559;             /* 목업 --ink */
-  --ink-secondary: #a3aed0;   /* 목업 --ink-2 */
+  /* --- 잉크 (Seller Command Deck) --- */
+  --ink: #192033;             /* 본문/제목 잉크 (참고 --ink) */
+  --ink-secondary: #737b8f;   /* 보조 텍스트 (참고 --muted) */
   --ink-faint: #a3aed0;
 
   /* --- 보더 --- */
-  --border: #e8e9f0;
+  --border: #e9ebf1;          /* 카드 경계 (참고 --line) */
   --border-strong: #dcdce4;
 
   /* --- 액센트/상태 --- */
-  --accent: #4318ff;          /* 목업 --purple */
-  --accent-hover: #3311cc;
-  --accent-soft: #f4f0ff;     /* 목업 --purple-soft */
+  --accent: #6047dc;          /* 프라이머리 (참고 그라디언트 끝색) */
+  --accent-hover: #4635bd;    /* 참고 nav hover 텍스트색 */
+  --accent-soft: #f4f2ff;     /* nav hover 배경 */
   --on-accent: #ffffff;
-  --purple: #7b5cff;
+  --purple: #6f5cf4;          /* 액센트 보조 (참고 --violet) */
+  --navy: #171b33;            /* 커맨드덱 베이스 (Round B/C) */
+  --navy-soft: #232849;       /* 커맨드덱 보조 (Round B/C) */
   --success: #0f9d58;
   --green-soft: #eafaf0;
   --warn: #b25000;
@@ -69,18 +71,24 @@
   --grad-pink: linear-gradient(150deg, #ec6b93, #d02361);
   --bar-fill: linear-gradient(180deg, #7b93ff, #3355ff 70%, #7b5cff);
 
-  /* --- 형태 (Horizon: 크고 부드러운 라운드) --- */
-  --radius-card: 20px;
-  --radius-sm: 12px;
+  /* --- 그라디언트(Seller Command Deck) --- */
+  --grad-command-shell: linear-gradient(180deg, #ffffff 0, #f8f9fc 310px, #f4f6fa 100%);
+  --grad-nav-active: linear-gradient(130deg, #7e6df6, #654ce6);
+  --grad-primary-action: linear-gradient(135deg, #7b6bf4, #6047dc);
+
+  /* --- 형태 (Seller Command Deck: 컴팩트 라운드) --- */
+  --radius-card: 17px;
+  --radius-sm: 9px;
   --radius-pill: 999px;
 
-  /* --- 그림자 — Horizon 부드러운 블루그레이 확산광 --- */
-  --e1: 0 2px 8px rgba(112, 144, 176, 0.10);
-  --e2: 0 4px 12px rgba(112, 144, 176, 0.10),
-    0 18px 40px -12px rgba(112, 144, 176, 0.16);
-  --e3: 0 8px 18px rgba(112, 144, 176, 0.12),
-    0 30px 60px -16px rgba(112, 144, 176, 0.20);
-  --glow-accent: 0 10px 24px -8px rgba(67, 24, 255, 0.35);
+  /* 상단 커맨드바 높이 — sticky thead 오프셋 기준(정정 1) */
+  --command-header-h: 70px;
+
+  /* --- 그림자 — Seller Command Deck (옅은 웜그레이) --- */
+  --e1: 0 2px 5px rgba(42, 46, 71, 0.08);
+  --e2: 0 8px 18px rgba(32, 41, 66, 0.035);
+  --e3: 0 20px 38px rgba(21, 25, 53, 0.17);
+  --glow-accent: 0 8px 16px rgba(91, 70, 220, 0.22);
   --shadow-card: var(--e2);
   --shadow-frame: var(--e3);
   --shadow-pop: var(--e2);
@@ -172,36 +180,40 @@ a:hover {
   font-feature-settings: 'tnum' 1;
 }
 
-/* ============================================================ 셸 / 사이드바 */
-/* 좌측 고정 밝은 회색 사이드바 + 우측 본문(내부 스크롤). */
-.app-shell {
-  display: grid;
-  grid-template-columns: 224px 1fr;
+/* ========================================================= 셸 / 커맨드바 */
+/* 상단 가로 커맨드바(sticky) + 아래 본문(body 스크롤). Seller Command Deck. */
+.command-shell {
   min-height: 100vh;
+  background: var(--grad-command-shell);
 }
 
-.app-sidebar {
-  background: var(--sidebar-bg);
-  border-right: 1px solid var(--sidebar-border);
-  padding: 20px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+/* 상단 커맨드바 — sticky. thead가 이 아래에 자연스럽게 붙도록 z-index 확보. */
+.command-header {
   position: sticky;
   top: 0;
-  height: 100vh;
-  z-index: 2;
-}
-.side-brand {
+  z-index: 20;
   display: flex;
   align-items: center;
+  gap: 32px;
+  height: var(--command-header-h);
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 34px;
+  border-bottom: 1px solid var(--sidebar-border);
+  background: var(--sidebar-bg);
+  backdrop-filter: saturate(1.4) blur(8px);
+}
+.command-brand {
+  display: inline-flex;
+  align-items: center;
   gap: 9px;
-  padding: 6px 8px 22px;
-  font-weight: 800;
-  font-size: 15px;
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 780;
+  letter-spacing: -0.05em;
   color: var(--ink);
 }
-.side-brand:hover {
+.command-brand:hover {
   color: var(--ink);
 }
 .side-mark,
@@ -210,84 +222,76 @@ a:hover {
   width: 26px;
   height: 26px;
   border-radius: 8px;
-  background: var(--grad-brand);
-  box-shadow: 0 4px 10px -4px rgba(51, 85, 255, 0.5);
+  background: var(--grad-primary-action);
+  box-shadow: 0 5px 12px rgba(89, 75, 235, 0.18);
   display: grid;
   place-items: center;
   color: #fff;
   font-weight: 800;
   font-size: 13px;
 }
-.side-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.side-navitem {
+.command-nav {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 10px;
-  border-radius: 9px;
-  font-size: 13.5px;
-  font-weight: 500;
-  color: var(--ink-secondary);
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+.command-nav-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 11px;
+  border-radius: var(--radius-sm);
+  color: #7f8798;
+  font-size: 12.5px;
+  font-weight: 630;
+  letter-spacing: -0.04em;
+  white-space: nowrap;
   text-decoration: none;
-  transition: background 120ms ease, color 120ms ease;
+  transition: color 0.18s ease, background 0.18s ease, transform 0.18s ease;
 }
-.side-navitem:hover {
-  background: rgba(20, 20, 50, 0.05);
-  color: var(--ink);
-}
-.side-navitem.active {
+.command-nav-item:hover {
+  color: var(--accent-hover);
   background: var(--accent-soft);
-  color: var(--ink);
-  font-weight: 700;
-  box-shadow: none;
+  transform: translateY(-1px);
 }
-.side-navitem .dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: currentColor;
-  opacity: 0.6;
+.command-nav-item.active {
+  color: #fff;
+  background: var(--grad-nav-active);
+  box-shadow: 0 5px 11px rgba(96, 77, 223, 0.2);
 }
-.side-navitem.active .dot {
-  background: var(--accent);
-  opacity: 1;
-  box-shadow: 0 0 0 4px rgba(67, 24, 255, 0.12);
+.command-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
 }
-.side-section {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--ink-faint);
-  text-transform: uppercase;
-  padding: 16px 10px 6px;
-}
-.side-foot {
-  margin-top: auto;
-  padding: 10px 10px 2px;
+.analyst-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ink-secondary);
   font-size: 11px;
-  color: var(--ink-faint);
-  line-height: 1.5;
+  font-weight: 620;
+  letter-spacing: -0.04em;
+}
+.analyst-note svg {
+  width: 14px;
+  height: 14px;
+  color: #37aa78;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.app-main {
-  height: 100vh;
-  overflow-y: auto;
-  background: var(--app-bg);
-  padding: 22px 28px 28px;
-  position: relative;
-  z-index: 1;
-}
-.app-main::-webkit-scrollbar {
-  width: 10px;
-}
-.app-main::-webkit-scrollbar-thumb {
-  background: #d7d7de;
-  border-radius: 99px;
-  border: 3px solid var(--app-bg);
+.command-main {
+  width: min(100%, 1380px);
+  margin: 0 auto;
+  padding: 32px 34px 64px;
 }
 
 /* 라우트 전환 — 은은한 fade */
@@ -305,30 +309,21 @@ a:hover {
   }
 }
 
-/* 모바일: 사이드바를 상단 바로 접음 */
+/* 모바일: 이미 상단 바이므로 네비만 가로 스크롤 처리(드로어 없음) */
 @media (max-width: 760px) {
-  .app-shell {
-    grid-template-columns: 1fr;
+  .command-header {
+    gap: 16px;
+    padding: 0 18px;
   }
-  .app-sidebar {
-    position: static;
-    height: auto;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
+  .command-nav {
+    overflow-x: auto;
+    scrollbar-width: none;
   }
-  .side-brand {
-    padding: 4px 8px;
-    width: 100%;
-  }
-  .side-section,
-  .side-foot {
+  .command-nav::-webkit-scrollbar {
     display: none;
   }
-  .app-main {
-    height: auto;
-    overflow: visible;
+  .command-main {
+    padding: 22px 18px 48px;
   }
 }
 
@@ -348,9 +343,9 @@ a:hover {
   gap: var(--sp-3);
   font-family: var(--font-display);
   font-size: var(--fs-18);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.05em;
   color: var(--ink);
-  font-weight: 800;
+  font-weight: 780;
   line-height: 1.3;
   margin: 0 0 var(--sp-4);
   padding-bottom: var(--sp-3);
@@ -429,16 +424,16 @@ a:hover {
 }
 .kpi-card .value {
   font-size: var(--fs-28);
-  font-weight: 800;
+  font-weight: 780;
   margin-top: 4px;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.06em;
   line-height: 1.14;
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
   color: var(--ink);
 }
 .kpi-card .value .count-up {
-  font-weight: 800;
+  font-weight: 780;
 }
 .kpi-card .value .cur {
   display: block;
@@ -451,7 +446,7 @@ a:hover {
 /* delta 칩(정본) */
 .kpi-card .delta {
   font-size: var(--fs-12);
-  font-weight: 700;
+  font-weight: 720;
   margin-top: 6px;
   display: inline-flex;
   align-items: center;
@@ -611,11 +606,13 @@ table.data td {
 }
 table.data thead th {
   position: sticky;
-  top: 0;
+  /* 스크롤이 body로 이동(command-main는 자체 스크롤 없음) → 상단 커맨드바(sticky)
+     높이만큼 오프셋해야 thead가 커맨드바 뒤에 가려지지 않고 그 아래 붙는다(정정 1). */
+  top: var(--command-header-h);
   background: var(--bg-subtle);
   color: var(--ink-faint);
   font-family: var(--font-display);
-  font-weight: 700;
+  font-weight: 720;
   font-size: 10.5px;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -678,7 +675,7 @@ table.data select {
   border-radius: var(--radius-pill);
   font-family: var(--font-display);
   font-size: var(--fs-11);
-  font-weight: 700;
+  font-weight: 720;
   letter-spacing: 0;
   border: 1px solid var(--border);
   color: var(--ink-secondary);
@@ -905,8 +902,8 @@ td.bid-down {
   color: var(--ink);
   font-family: var(--font-display);
   font-size: var(--fs-22);
-  font-weight: 800;
-  letter-spacing: -0.01em;
+  font-weight: 780;
+  letter-spacing: -0.05em;
 }
 .empty .empty-sub {
   max-width: 460px;
