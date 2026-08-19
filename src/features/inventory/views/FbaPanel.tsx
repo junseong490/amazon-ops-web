@@ -1,5 +1,6 @@
 // FBA(미국) 패널 — 2단(3PL → FBA). reference §5b 현재고 입력 + 두 결정 카드.
-// 계산은 순수 함수(calc/fba). "언제 보낼지"(FBA 보충 발송 시점)를 강조 표시.
+// 계산은 순수 함수(calc/fba). "언제 보낼지"(FBA 보충 발송 시점)를 최상단에 강조 표시하고,
+// 세부 입력(현재고 구성요소·3PL·리드타임·안전재고)은 "고급 설정"으로 접어 둔다(기본 접힘).
 import { useMemo, useState } from 'react';
 import { computeFba } from '../calc/fba';
 import { safetyStockFromDays, safetyStockFromLeadTime } from '../calc/primitives';
@@ -24,6 +25,9 @@ export function FbaPanel({ velocities }: { velocities: ItemVelocity[] }) {
   const [velocity, setVelocity] = useState('5');
   const [selectedItem, setSelectedItem] = useState('');
 
+  // 고급 설정 접기 상태 (기본 접힘)
+  const [advOpen, setAdvOpen] = useState(false);
+
   // §5b FBA 현재고 구성요소
   const [fbaInbound, setFbaInbound] = useState('17');
   const [fbaOnHand, setFbaOnHand] = useState('240'); // 보유 = 사용가능 + FC이전
@@ -31,11 +35,6 @@ export function FbaPanel({ velocities }: { velocities: ItemVelocity[] }) {
   const [fbaAvailable, setFbaAvailable] = useState('201'); // 보조 품절지표
   const [useOverride, setUseOverride] = useState(false);
   const [overrideValue, setOverrideValue] = useState('263');
-
-  // 참고용(계산 제외) — 표시만
-  const [refCustomerOrders, setRefCustomerOrders] = useState('15');
-  const [refInvestigating, setRefInvestigating] = useState('7');
-  const [refUnfulfillable, setRefUnfulfillable] = useState('2');
 
   // 3PL
   const [stock3pl, setStock3pl] = useState('100');
@@ -99,170 +98,10 @@ export function FbaPanel({ velocities }: { velocities: ItemVelocity[] }) {
 
   return (
     <>
-      {velocities.length > 0 && (
-        <div className="panel">
-          <h2>매출 데이터 연동 (선택 · US)</h2>
-          <div className="filters">
-            <div className="field">
-              <label>품목 velocity 불러오기 (Amazon.com)</label>
-              <select value={selectedItem} onChange={(e) => applyVelocity(e.target.value)}>
-                <option value="">— 품목 선택 —</option>
-                {velocities.map((x) => (
-                  <option key={x.key} value={x.key}>
-                    {x.label} · {fmt(x.velocity, 2)}/일
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* FBA 현재고 입력 (§5b) */}
+      {/* ① 핵심 답 — 언제 보낼지 (최상단 강조) */}
       <div className="panel">
         <h2>
-          현재 FBA 재고 (Seller Central 재고 개요)
-          <span className="gross-note">· 인바운드 + 보유 + FC처리중 = {fmt(summedStock, 0)}</span>
-        </h2>
-        <div className="filters">
-          <div className="field">
-            <label>인바운드 (배송 중)</label>
-            <input type="number" min="0" step="1" value={fbaInbound} onChange={(e) => setFbaInbound(e.target.value)} disabled={useOverride} />
-          </div>
-          <div className="field">
-            <label>보유 (사용가능 + FC이전)</label>
-            <input type="number" min="0" step="1" value={fbaOnHand} onChange={(e) => setFbaOnHand(e.target.value)} disabled={useOverride} />
-          </div>
-          <div className="field">
-            <label>주문처리센터 처리 중</label>
-            <input type="number" min="0" step="1" value={fbaFcProcessing} onChange={(e) => setFbaFcProcessing(e.target.value)} disabled={useOverride} />
-          </div>
-          <div className="field">
-            <label>└ 그중 사용 가능 (available)</label>
-            <input type="number" min="0" step="1" value={fbaAvailable} onChange={(e) => setFbaAvailable(e.target.value)} />
-          </div>
-        </div>
-
-        <div className="filters" style={{ marginTop: 12 }}>
-          <div className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <input id="ovr" type="checkbox" checked={useOverride} onChange={(e) => setUseOverride(e.target.checked)} style={{ width: 'auto' }} />
-            <label htmlFor="ovr" style={{ margin: 0 }}>현재고 합계를 직접 입력</label>
-          </div>
-          {useOverride && (
-            <div className="field">
-              <label>현재 FBA 재고 (합계)</label>
-              <input type="number" min="0" step="1" value={overrideValue} onChange={(e) => setOverrideValue(e.target.value)} />
-            </div>
-          )}
-          <div className="field" style={{ justifyContent: 'flex-end' }}>
-            <span className="muted" style={{ fontSize: 'var(--fs-12)' }}>
-              적용 현재고 = <strong>{fmt(result.currentFbaStock, 0)}</strong> units · 보충 판단 주 기준
-            </span>
-          </div>
-        </div>
-
-        <p className="muted" style={{ fontSize: 'var(--fs-12)', marginTop: 10, marginBottom: 6 }}>
-          참고(계산 제외): 고객주문·조사중·처리불가는 가용이 아니므로 현재고에 넣지 않습니다.
-        </p>
-        <div className="filters">
-          <div className="field">
-            <label>고객 주문 (예약됨)</label>
-            <input type="number" min="0" step="1" value={refCustomerOrders} onChange={(e) => setRefCustomerOrders(e.target.value)} />
-          </div>
-          <div className="field">
-            <label>조사 중</label>
-            <input type="number" min="0" step="1" value={refInvestigating} onChange={(e) => setRefInvestigating(e.target.value)} />
-          </div>
-          <div className="field">
-            <label>주문 처리 불가</label>
-            <input type="number" min="0" step="1" value={refUnfulfillable} onChange={(e) => setRefUnfulfillable(e.target.value)} />
-          </div>
-        </div>
-      </div>
-
-      {/* 파라미터 입력 */}
-      <div className="panel">
-        <h2>파라미터 — 3PL 재고 · 리드타임 · 안전재고</h2>
-        <div className="filters">
-          <div className="field">
-            <label>일 평균 판매량 (velocity, US)</label>
-            <input type="number" min="0" step="0.1" value={velocity} onChange={(e) => setVelocity(e.target.value)} />
-          </div>
-          <div className="field">
-            <label>3PL 재고 (배송중 제외)</label>
-            <input type="number" min="0" step="1" value={stock3pl} onChange={(e) => setStock3pl(e.target.value)} />
-          </div>
-          <div className="field">
-            <label>3PL 발주중 (공급사→3PL)</label>
-            <input type="number" min="0" step="1" value={onOrder3pl} onChange={(e) => setOnOrder3pl(e.target.value)} />
-          </div>
-          <div className="field">
-            <label>L_fba 3PL→FBA 리드타임 (일)</label>
-            <input type="number" min="0" step="1" value={leadTimeFba} onChange={(e) => setLeadTimeFba(e.target.value)} />
-          </div>
-          <div className="field">
-            <label>L_sup 공급사→3PL 리드타임 (일)</label>
-            <input type="number" min="0" step="1" value={leadTimeSup} onChange={(e) => setLeadTimeSup(e.target.value)} />
-          </div>
-          <div className="field">
-            <label>검토주기 R (일)</label>
-            <input type="number" min="0" step="1" value={reviewDays} onChange={(e) => setReviewDays(e.target.value)} />
-          </div>
-          <div className="field">
-            <label>3PL 발주 로트(배수, 선택)</label>
-            <input type="number" min="0" step="1" value={lotSize} onChange={(e) => setLotSize(e.target.value)} placeholder="없음" />
-          </div>
-          <div className="field">
-            <label>3PL MOQ(선택)</label>
-            <input type="number" min="0" step="1" value={minOrderQty} onChange={(e) => setMinOrderQty(e.target.value)} placeholder="없음" />
-          </div>
-        </div>
-
-        <div className="filters" style={{ marginTop: 16 }}>
-          <div className="field">
-            <label>안전재고 방식</label>
-            <select value={safetyMode} onChange={(e) => setSafetyMode(e.target.value as SafetyMode)}>
-              <option value="days">일수 기반 (N일치)</option>
-              <option value="factor">리드타임×velocity×계수</option>
-              <option value="direct">직접 입력 (tier별)</option>
-            </select>
-          </div>
-          {safetyMode === 'days' && (
-            <div className="field">
-              <label>안전재고 일수</label>
-              <input type="number" min="0" step="1" value={safetyDays} onChange={(e) => setSafetyDays(e.target.value)} />
-            </div>
-          )}
-          {safetyMode === 'factor' && (
-            <div className="field">
-              <label>안전계수</label>
-              <input type="number" min="0" step="0.1" value={safetyFactor} onChange={(e) => setSafetyFactor(e.target.value)} />
-            </div>
-          )}
-          {safetyMode === 'direct' && (
-            <>
-              <div className="field">
-                <label>FBA 안전재고 (units)</label>
-                <input type="number" min="0" step="1" value={ssFbaDirect} onChange={(e) => setSsFbaDirect(e.target.value)} />
-              </div>
-              <div className="field">
-                <label>3PL 안전재고 (units)</label>
-                <input type="number" min="0" step="1" value={ss3plDirect} onChange={(e) => setSs3plDirect(e.target.value)} />
-              </div>
-            </>
-          )}
-          <div className="field" style={{ justifyContent: 'flex-end' }}>
-            <span className="muted" style={{ fontSize: 'var(--fs-12)' }}>
-              ss_fba = <strong>{fmt(ssFba)}</strong> · ss_3pl = <strong>{fmt(ss3pl)}</strong>
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* 카드 1 — FBA 보충 (언제 보낼지 강조) */}
-      <div className="panel">
-        <h2>
-          ① FBA 보충 (3PL → FBA)
+          ① FBA에 언제 보낼지 (3PL → FBA)
           <span className="gross-note">· {result.needsReplenish ? '지금 보내야 함' : '아직 여유'}</span>
         </h2>
         <div
@@ -334,9 +173,184 @@ export function FbaPanel({ velocities }: { velocities: ItemVelocity[] }) {
             </tbody>
           </table>
         </div>
+        <p className="muted" style={{ fontSize: 'var(--fs-12)', marginTop: 10, marginBottom: 0 }}>
+          발송/재주문 시점은 오늘(브라우저 로컬) 기준 · 매출 데이터 없어도 아래 기본값만으로 계산됩니다.
+        </p>
       </div>
 
-      {/* 카드 2 — 3PL 재주문 */}
+      {/* 매출 데이터 연동 (선택) — velocity 불러오기 */}
+      {velocities.length > 0 && (
+        <div className="panel">
+          <h2>매출 데이터 연동 (선택 · US)</h2>
+          <div className="filters">
+            <div className="field">
+              <label>품목 velocity 불러오기 (Amazon.com)</label>
+              <select value={selectedItem} onChange={(e) => applyVelocity(e.target.value)}>
+                <option value="">— 품목 선택 —</option>
+                {velocities.map((x) => (
+                  <option key={x.key} value={x.key}>
+                    {x.label} · {fmt(x.velocity, 2)}/일
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field" style={{ justifyContent: 'flex-end' }}>
+              <span className="muted" style={{ fontSize: 'var(--fs-12)' }}>
+                일 평균 판매량(velocity) = <strong>{fmt(v, 2)}</strong>/일
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 고급 설정 — 기본 접힘. 현재고·3PL·리드타임·안전재고 입력 */}
+      <div className="panel">
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button
+            className="btn"
+            aria-expanded={advOpen}
+            aria-label={advOpen ? '고급 설정 접기' : '고급 설정 펼치기'}
+            title={advOpen ? '접기' : '펼치기'}
+            style={{ flex: '0 0 auto', minWidth: 34 }}
+            onClick={() => setAdvOpen((o) => !o)}
+          >
+            {advOpen ? '▾' : '▸'}
+          </button>
+          <h2 style={{ margin: 0 }}>고급 설정 (현재고 · 3PL · 리드타임 · 안전재고)</h2>
+          {!advOpen && (
+            <span className="muted" style={{ fontSize: 'var(--fs-12)', marginLeft: 'auto' }}>
+              현재고 {fmt(result.currentFbaStock, 0)} · 3PL {fmt(num(stock3pl), 0)} · 리드타임 {leadTimeFba}+{leadTimeSup}일 · velocity {fmt(v, 2)}/일
+            </span>
+          )}
+        </div>
+
+        {advOpen && (
+          <>
+            {/* FBA 현재고 입력 (§5b) */}
+            <h3 style={{ marginTop: 20, marginBottom: 8, fontSize: 'var(--fs-14)' }}>
+              현재 FBA 재고 (Seller Central 재고 개요)
+              <span className="gross-note">· 인바운드 + 보유 + FC처리중 = {fmt(summedStock, 0)}</span>
+            </h3>
+            <div className="filters">
+              <div className="field">
+                <label>인바운드 (배송 중)</label>
+                <input type="number" min="0" step="1" value={fbaInbound} onChange={(e) => setFbaInbound(e.target.value)} disabled={useOverride} />
+              </div>
+              <div className="field">
+                <label>보유 (사용가능 + FC이전)</label>
+                <input type="number" min="0" step="1" value={fbaOnHand} onChange={(e) => setFbaOnHand(e.target.value)} disabled={useOverride} />
+              </div>
+              <div className="field">
+                <label>주문처리센터 처리 중</label>
+                <input type="number" min="0" step="1" value={fbaFcProcessing} onChange={(e) => setFbaFcProcessing(e.target.value)} disabled={useOverride} />
+              </div>
+              <div className="field">
+                <label>└ 그중 사용 가능 (available)</label>
+                <input type="number" min="0" step="1" value={fbaAvailable} onChange={(e) => setFbaAvailable(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="filters" style={{ marginTop: 12 }}>
+              <div className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <input id="ovr" type="checkbox" checked={useOverride} onChange={(e) => setUseOverride(e.target.checked)} style={{ width: 'auto' }} />
+                <label htmlFor="ovr" style={{ margin: 0 }}>현재고 합계를 직접 입력</label>
+              </div>
+              {useOverride && (
+                <div className="field">
+                  <label>현재 FBA 재고 (합계)</label>
+                  <input type="number" min="0" step="1" value={overrideValue} onChange={(e) => setOverrideValue(e.target.value)} />
+                </div>
+              )}
+              <div className="field" style={{ justifyContent: 'flex-end' }}>
+                <span className="muted" style={{ fontSize: 'var(--fs-12)' }}>
+                  적용 현재고 = <strong>{fmt(result.currentFbaStock, 0)}</strong> units · 보충 판단 주 기준
+                </span>
+              </div>
+            </div>
+
+            {/* 파라미터 입력 */}
+            <h3 style={{ marginTop: 24, marginBottom: 8, fontSize: 'var(--fs-14)' }}>
+              파라미터 — velocity · 3PL 재고 · 리드타임 · 안전재고
+            </h3>
+            <div className="filters">
+              <div className="field">
+                <label>일 평균 판매량 (velocity, US)</label>
+                <input type="number" min="0" step="0.1" value={velocity} onChange={(e) => setVelocity(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>3PL 재고 (배송중 제외)</label>
+                <input type="number" min="0" step="1" value={stock3pl} onChange={(e) => setStock3pl(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>3PL 발주중 (공급사→3PL)</label>
+                <input type="number" min="0" step="1" value={onOrder3pl} onChange={(e) => setOnOrder3pl(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>L_fba 3PL→FBA 리드타임 (일)</label>
+                <input type="number" min="0" step="1" value={leadTimeFba} onChange={(e) => setLeadTimeFba(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>L_sup 공급사→3PL 리드타임 (일)</label>
+                <input type="number" min="0" step="1" value={leadTimeSup} onChange={(e) => setLeadTimeSup(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>검토주기 R (일)</label>
+                <input type="number" min="0" step="1" value={reviewDays} onChange={(e) => setReviewDays(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>3PL 발주 로트(배수, 선택)</label>
+                <input type="number" min="0" step="1" value={lotSize} onChange={(e) => setLotSize(e.target.value)} placeholder="없음" />
+              </div>
+              <div className="field">
+                <label>3PL MOQ(선택)</label>
+                <input type="number" min="0" step="1" value={minOrderQty} onChange={(e) => setMinOrderQty(e.target.value)} placeholder="없음" />
+              </div>
+            </div>
+
+            <div className="filters" style={{ marginTop: 16 }}>
+              <div className="field">
+                <label>안전재고 방식</label>
+                <select value={safetyMode} onChange={(e) => setSafetyMode(e.target.value as SafetyMode)}>
+                  <option value="days">일수 기반 (N일치)</option>
+                  <option value="factor">리드타임×velocity×계수</option>
+                  <option value="direct">직접 입력 (tier별)</option>
+                </select>
+              </div>
+              {safetyMode === 'days' && (
+                <div className="field">
+                  <label>안전재고 일수</label>
+                  <input type="number" min="0" step="1" value={safetyDays} onChange={(e) => setSafetyDays(e.target.value)} />
+                </div>
+              )}
+              {safetyMode === 'factor' && (
+                <div className="field">
+                  <label>안전계수</label>
+                  <input type="number" min="0" step="0.1" value={safetyFactor} onChange={(e) => setSafetyFactor(e.target.value)} />
+                </div>
+              )}
+              {safetyMode === 'direct' && (
+                <>
+                  <div className="field">
+                    <label>FBA 안전재고 (units)</label>
+                    <input type="number" min="0" step="1" value={ssFbaDirect} onChange={(e) => setSsFbaDirect(e.target.value)} />
+                  </div>
+                  <div className="field">
+                    <label>3PL 안전재고 (units)</label>
+                    <input type="number" min="0" step="1" value={ss3plDirect} onChange={(e) => setSs3plDirect(e.target.value)} />
+                  </div>
+                </>
+              )}
+              <div className="field" style={{ justifyContent: 'flex-end' }}>
+                <span className="muted" style={{ fontSize: 'var(--fs-12)' }}>
+                  ss_fba = <strong>{fmt(ssFba)}</strong> · ss_3pl = <strong>{fmt(ss3pl)}</strong>
+                </span>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ② 3PL 재주문 */}
       <div className="panel">
         <h2>
           ② 3PL 재주문 (공급사 → 3PL)
@@ -386,9 +400,6 @@ export function FbaPanel({ velocities }: { velocities: ItemVelocity[] }) {
             </tbody>
           </table>
         </div>
-        <p className="muted" style={{ fontSize: 'var(--fs-12)', marginTop: 10, marginBottom: 0 }}>
-          발송/재주문 시점은 오늘(브라우저 로컬) 기준 · 매출 데이터 없어도 수동 입력만으로 계산됩니다.
-        </p>
       </div>
     </>
   );

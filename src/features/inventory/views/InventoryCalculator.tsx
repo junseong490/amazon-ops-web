@@ -39,15 +39,15 @@ export function InventoryCalculator() {
           <div className="field">
             <label>마켓 선택</label>
             <select value={model} onChange={(e) => setModel(e.target.value as FulfillmentModel)}>
-              <option value="FBM">일본 (JP) — FBM · 단일창고</option>
-              <option value="FBA">미국 (US) — FBA · 2단(3PL→FBA)</option>
+              <option value="FBM">일본 (JP)</option>
+              <option value="FBA">미국 (US)</option>
             </select>
           </div>
           <div className="field" style={{ justifyContent: 'flex-end' }}>
             <span className="muted" style={{ fontSize: 'var(--fs-12)' }}>
               {model === 'FBM'
-                ? '3PL 창고 1곳에서 직접 고객 출고 → 단순 재주문.'
-                : '3PL → FBA 2단. 현재 FBA 재고 기준으로 언제·얼마 보낼지 + 3PL 재주문.'}
+                ? '창고 1곳에서 직접 고객에게 출고.'
+                : 'FBA에 재고를 언제·얼마나 보낼지 계산.'}
             </span>
           </div>
         </div>
