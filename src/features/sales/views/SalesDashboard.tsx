@@ -26,6 +26,7 @@ import { createDefaultSkuAliasSource } from '../../../core/store/skuAliasSource'
 import type { RawFile } from '../parse/pipeline';
 import { ingestFiles } from '../parse/pipeline';
 import { UploadPanel } from './UploadPanel';
+import { Sparkline } from './Sparkline';
 import { ClipCell } from '../../../components/ClipCell';
 import { CountUp } from '../../../components/CountUp';
 import { useChartTokens, tooltipStyle } from '../../../components/chartTokens';
@@ -181,6 +182,13 @@ export function SalesDashboard() {
     date: r.keys[0],
     revenue: round2(r.revenueByCurrency[cur] || 0),
   }));
+  // KPI 스파크라인 실데이터 시계열(선택 통화 cur, 일별). byDate.rows 재사용 — 새 집계 없음.
+  const sparkRevenue = byDate.rows.map((r) => r.revenueByCurrency[cur] || 0);
+  const sparkOrders = byDate.rows.map((r) => r.orderCount);
+  const sparkAov = byDate.rows.map((r) =>
+    r.orderCount > 0 ? (r.revenueByCurrency[cur] || 0) / r.orderCount : 0,
+  );
+  const sparkQty = byDate.rows.map((r) => r.quantity);
   const channelData = [...byChannel.rows]
     .sort((a, b) => (b.revenueByCurrency[cur] || 0) - (a.revenueByCurrency[cur] || 0))
     .map((r) => ({ channel: r.keys[0], revenue: round2(r.revenueByCurrency[cur] || 0) }));
@@ -327,60 +335,72 @@ export function SalesDashboard() {
           요약 KPI <span className="gross-note">· 매출은 반품 차감 전(gross)</span>
         </h2>
         <div className="kpi-grid">
-          <div className="kpi-card">
+          <div className="kpi-card rose">
             <div className="kpi-badge g-blue" aria-hidden="true">
               <svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 4 8-9" /><path d="M15 7h5v5" /></svg>
             </div>
             <div className="label">
               총매출 ({revenueMode === 'net' ? '순매출' : 'gross'}, 통화별)
             </div>
-            <div className="value">
-              {currencies.length === 0 ? (
-                '—'
-              ) : (
-                currencies.map((c) => (
-                  <span className="cur" key={c}>
-                    {formatMoney(byChannel.totals.revenueByCurrency[c] || 0, c)}
-                  </span>
-                ))
-              )}
+            <div className="kpi-foot">
+              <div className="value">
+                {currencies.length === 0 ? (
+                  '—'
+                ) : (
+                  currencies.map((c) => (
+                    <span className="cur" key={c}>
+                      {formatMoney(byChannel.totals.revenueByCurrency[c] || 0, c)}
+                    </span>
+                  ))
+                )}
+              </div>
+              <Sparkline points={sparkRevenue} variant="line" />
             </div>
           </div>
-          <div className="kpi-card">
+          <div className="kpi-card lilac">
             <div className="kpi-badge g-orange" aria-hidden="true">
               <svg viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5 9 5 9-5z" /><path d="M3 8v8l9 5 9-5V8" /><path d="M12 13v8" /></svg>
             </div>
             <div className="label">주문수 (distinct order-id)</div>
-            <div className="value">
-              <CountUp
-                value={byChannel.totals.orderCount}
-                format={(n) => Math.round(n).toLocaleString()}
-              />
+            <div className="kpi-foot">
+              <div className="value">
+                <CountUp
+                  value={byChannel.totals.orderCount}
+                  format={(n) => Math.round(n).toLocaleString()}
+                />
+              </div>
+              <Sparkline points={sparkOrders} variant="bars" />
             </div>
           </div>
-          <div className="kpi-card">
+          <div className="kpi-card sky">
             <div className="kpi-badge g-green" aria-hidden="true">
               <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="0.6" fill="#fff" /></svg>
             </div>
             <div className="label">AOV (통화별)</div>
-            <div className="value">
-              {currencies.map((c) => (
-                <span className="cur" key={c}>
-                  {formatMoney(byChannel.totals.aovByCurrency[c] || 0, c)}
-                </span>
-              ))}
+            <div className="kpi-foot">
+              <div className="value">
+                {currencies.map((c) => (
+                  <span className="cur" key={c}>
+                    {formatMoney(byChannel.totals.aovByCurrency[c] || 0, c)}
+                  </span>
+                ))}
+              </div>
+              <Sparkline points={sparkAov} variant="spark" />
             </div>
           </div>
-          <div className="kpi-card">
+          <div className="kpi-card mint">
             <div className="kpi-badge g-pink" aria-hidden="true">
               <svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z" /><path d="M3 7v10l9 4 9-4V7" /></svg>
             </div>
             <div className="label">판매수량</div>
-            <div className="value">
-              <CountUp
-                value={byChannel.totals.quantity}
-                format={(n) => Math.round(n).toLocaleString()}
-              />
+            <div className="kpi-foot">
+              <div className="value">
+                <CountUp
+                  value={byChannel.totals.quantity}
+                  format={(n) => Math.round(n).toLocaleString()}
+                />
+              </div>
+              <Sparkline points={sparkQty} variant="area" />
             </div>
           </div>
         </div>

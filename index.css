@@ -312,7 +312,7 @@ a:hover {
 /* 모바일: 이미 상단 바이므로 네비만 가로 스크롤 처리(드로어 없음) */
 @media (max-width: 760px) {
   .command-header {
-    gap: 16px;
+    gap: 12px;
     padding: 0 18px;
   }
   .command-nav {
@@ -321,6 +321,19 @@ a:hover {
   }
   .command-nav::-webkit-scrollbar {
     display: none;
+  }
+  /* 버그 수정: analyst-note 배지가 flex-shrink:0 + 긴 텍스트(약 20자)라
+     .command-nav(flex:1)를 폭 0 근처로 밀어붙여 네비 5개가 안 보였다.
+     모바일에선 배지를 줄어들 수 있게 하고(방패 아이콘만 남김) 네비 폭을 확보한다. */
+  .command-header-actions {
+    flex-shrink: 1;
+    min-width: 0;
+  }
+  .analyst-note {
+    gap: 0;
+    /* 텍스트 노드만 접기(App.tsx 마크업 밖 → font-size:0으로 접고,
+       고정 px svg 아이콘은 그대로 표시). "브라우저를 벗어나지 않음" 방패는 유지. */
+    font-size: 0;
   }
   .command-main {
     padding: 22px 18px 48px;
@@ -461,6 +474,84 @@ a:hover {
 .kpi-card .delta.down {
   color: var(--danger);
   background: var(--red-soft);
+}
+
+/* KPI 카드 파스텔 틴트 (Seller Command Deck 톤 이식 — mockup .metric-card.*) */
+.kpi-card.rose {
+  background: linear-gradient(135deg, #fffafb, #fff2f2);
+}
+.kpi-card.lilac {
+  background: linear-gradient(135deg, #fcfbff, #f5f2ff);
+}
+.kpi-card.sky {
+  background: linear-gradient(135deg, #fbfdff, #f0f8ff);
+}
+.kpi-card.mint {
+  background: linear-gradient(135deg, #fbfffd, #eefaf4);
+}
+
+/* 값 + 미니 스파크라인을 카드 하단에 좌(값)·우(차트)로 정렬 */
+.kpi-foot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+.kpi-foot .value {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.kpi-foot .mini-line,
+.kpi-foot .mini-bars {
+  flex: none;
+}
+
+/* 미니 스파크라인 (실데이터 일별 시계열의 형상만; 수치 라벨·%델타 없음) */
+.mini-bars {
+  display: flex;
+  align-items: flex-end;
+  width: 78px;
+  height: 44px;
+  gap: 4px;
+  padding-bottom: 2px;
+}
+.mini-bars span {
+  flex: 1;
+  min-width: 2px;
+  border-radius: 3px 3px 1px 1px;
+  background: linear-gradient(180deg, #a899ff, #7461ed);
+}
+.mini-line {
+  width: 82px;
+  height: 44px;
+  overflow: visible;
+}
+.chart-stroke {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.chart-fill {
+  opacity: 0.18;
+}
+.mini-line.line .chart-stroke {
+  stroke: #ec7a86;
+}
+.mini-line.line .chart-fill {
+  fill: #ec7a86;
+}
+.mini-line.spark .chart-stroke {
+  stroke: #3e8fe1;
+}
+.mini-line.spark .chart-fill {
+  fill: #3e8fe1;
+}
+.mini-line.area .chart-stroke {
+  stroke: #35a87a;
+}
+.mini-line.area .chart-fill {
+  fill: #35a87a;
 }
 
 /* ----------------------------------------------------------------- 필터 폼 */
