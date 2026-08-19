@@ -1,6 +1,6 @@
 // 매출 대시보드 (MVP). 국가/기간/품목/상태 필터 + KPI + 차트 + 표.
 // 통화 분리 표시, "반품 차감 전(gross)" 라벨, 매출/세·배송/순매출 토글.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bar,
   BarChart,
@@ -27,6 +27,7 @@ import type { RawFile } from '../parse/pipeline';
 import { ingestFiles } from '../parse/pipeline';
 import { UploadPanel } from './UploadPanel';
 import { Sparkline } from './Sparkline';
+import { ProductDeck, type DeckItem } from './ProductDeck';
 import { ClipCell } from '../../../components/ClipCell';
 import { CountUp } from '../../../components/CountUp';
 import { useChartTokens, tooltipStyle } from '../../../components/chartTokens';
@@ -57,6 +58,11 @@ export function SalesDashboard() {
   const [chartCurrency, setChartCurrency] = useState<string>('');
   // 아래 표 영역을 탭으로 분리(세로 길이 축소). 기본: 국가·품목별.
   const [tableTab, setTableTab] = useState<'market' | 'daily' | 'daily-item'>('market');
+  // 데크 "품목별 표에서 보기" 액션이 강조하는 품목 키(품목별 표 행 하이라이트).
+  const [focusedItemKey, setFocusedItemKey] = useState<string | null>(null);
+  // 데크 액션의 스크롤 타깃(별칭 패널 / 품목별 표).
+  const aliasPanelRef = useRef<HTMLDivElement>(null);
+  const itemTablePanelRef = useRef<HTMLDivElement>(null);
 
   // 초기 로드: IndexedDB 캐시 복원
   useEffect(() => {
@@ -134,6 +140,11 @@ export function SalesDashboard() {
   const byChannel = useMemo(() => aggregate(records, ['channel'], opts), [records, opts]);
   const byItem = useMemo(() => aggregate(records, ['item'], opts), [records, opts]);
   const byDateItem = useMemo(() => aggregate(records, ['date', 'item'], opts), [records, opts]);
+  // 품목×마켓 실측 — 데크 "마켓 수·주요 마켓"용. 기존 aggregate 재사용(새 집계 로직 없음).
+  const byItemChannel = useMemo(
+    () => aggregate(records, ['item', 'channel'], opts),
+    [records, opts],
+  );
 
   const currencies = useMemo(
     () => Object.keys(byChannel.totals.revenueByCurrency).sort(),
@@ -196,6 +207,61 @@ export function SalesDashboard() {
     (a, b) => (b.revenueByCurrency[cur] || 0) - (a.revenueByCurrency[cur] || 0),
   );
   const curTotal = byItem.totals.revenueByCurrency[cur] || 0;
+
+  // 데크용 품목×마켓 실측 요약: 품목별 팔린 마켓 수 + 매출 1위 마켓(선택 통화 기준).
+  const itemMarketInfo: Record<string, { topMarket: string; marketCount: number }> = {};
+  {
+    const acc: Record<string, { markets: Set<string>; top: string; topRev: number }> = {};
+    for (const row of byItemChannel.rows) {
+      const itemKey = row.keys[0];
+      const channel = row.keys[1];
+      const rev = row.revenueByCurrency[cur] || 0;
+      const e = (acc[itemKey] ||= { markets: new Set<string>(), top: channel, topRev: -Infinity });
+      e.markets.add(channel);
+      if (rev > e.topRev) {
+        e.topRev = rev;
+        e.top = channel;
+      }
+    }
+    for (const key of Object.keys(acc)) {
+      itemMarketInfo[key] = { topMarket: acc[key].top, marketCount: acc[key].markets.size };
+    }
+  }
+
+  // 데크 좌측 랭킹 데이터(매출 내림차순 itemRowsSorted 재사용 — 새 집계 없음).
+  const deckItems: DeckItem[] = itemRowsSorted.map((r, i) => {
+    const key = r.keys[0];
+    const rev = r.revenueByCurrency[cur] || 0;
+    const info = itemMarketInfo[key];
+    return {
+      key,
+      label: resolveItemLabel(key, aliases, byItem.itemLabels),
+      revenue: rev,
+      quantity: r.quantity,
+      share: curTotal > 0 ? (rev / curTotal) * 100 : 0,
+      topMarket: info?.topMarket ?? '',
+      marketCount: info?.marketCount ?? 0,
+      rank: i + 1,
+    };
+  });
+
+  // 데크 액션: "별칭 편집" → 별칭 패널 펼치고 스크롤.
+  function focusAliasPanel(key: string) {
+    setAliasExpanded(true);
+    setFocusedItemKey(key);
+    requestAnimationFrame(() =>
+      aliasPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+    );
+  }
+
+  // 데크 액션: "품목별 표에서 보기" → 국가·품목별 탭으로 전환 + 해당 품목 행 강조 + 스크롤.
+  function locateItemInTable(key: string) {
+    setTableTab('market');
+    setFocusedItemKey(key);
+    requestAnimationFrame(() =>
+      itemTablePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+    );
+  }
 
   // 별칭 설정 패널 접힘 요약용 카운트. 현재 품목 축(SKU/ASIN) 기준.
   const aliasItemCount = itemRowsSorted.length;
@@ -406,6 +472,18 @@ export function SalesDashboard() {
         </div>
       </div>
 
+      {/* 품목 성과 하이라이트 — 다크 커맨드덱(Round C). top N 훑기용.
+          전수 데이터는 아래 기존 상세 표가 그대로 담당(데크가 표를 대체하지 않음). */}
+      <ProductDeck
+        items={deckItems}
+        cur={cur}
+        tableTab={tableTab}
+        onTabChange={setTableTab}
+        onLocate={locateItemInTable}
+        onEditAlias={focusAliasPanel}
+        onSeeAll={() => locateItemInTable('')}
+      />
+
       {/* 차트 */}
       <div className="panel">
         <h2>차트 · 통화 {cur || '—'}</h2>
@@ -451,7 +529,7 @@ export function SalesDashboard() {
 
       {/* 품목 별칭 설정 — 탭과 무관한 상위 설정. 한 번 설정하면 국가·품목별/일별/일별
           품목별 모든 표에 공통 적용된다(표시 라벨은 resolveItemLabel 공유 함수 경유). */}
-      <div className="panel">
+      <div className="panel" ref={aliasPanelRef}>
         <h2>품목 별칭 설정</h2>
         <div className="loaded-bar">
           <span className="muted">
@@ -501,8 +579,9 @@ export function SalesDashboard() {
         )}
       </div>
 
-      {/* 표 영역: 3블록을 탭으로 분리(세로 길이 축소) */}
-      <SalesTableTabs active={tableTab} onChange={setTableTab} />
+      {/* 표 영역: 3블록을 탭으로 분리(세로 길이 축소).
+          탭 컨트롤은 위 ProductDeck의 deck-tabs가 담당(동일 tableTab 상태 공유) —
+          여기 별도 SalesTableTabs를 두면 동일 탭바가 두 번 뜨므로 제거함(Round C 버그수정). */}
 
       {/* 탭 1: 국가·품목별 — 좁은 두 표를 2열로 나란히 배치 */}
       <div className="chart-grid" style={{ display: tableTab === 'market' ? undefined : 'none' }}>
@@ -537,7 +616,7 @@ export function SalesDashboard() {
       </div>
 
       {/* 품목별 표 */}
-      <div className="panel">
+      <div className="panel" ref={itemTablePanelRef}>
         <h2>품목별 ({itemAxis.toUpperCase()})</h2>
         <div className="table-wrap">
           <table className="data">
@@ -556,8 +635,16 @@ export function SalesDashboard() {
                 const key = r.keys[0];
                 // 표시 전용: 별칭이 있으면 별칭, 없으면 원본. 편집은 상단 "품목 별칭 설정" 패널에서만.
                 const label = resolveItemLabel(key, aliases, byItem.itemLabels);
+                const focused = key === focusedItemKey;
                 return (
-                  <tr key={key}>
+                  <tr
+                    key={key}
+                    style={
+                      focused
+                        ? { background: 'var(--accent-soft)', outline: '2px solid var(--accent)' }
+                        : undefined
+                    }
+                  >
                     <ClipCell text={label} />
                     <ClipCell text={key} variant="key" />
                     <td>{r.quantity.toLocaleString()}</td>
@@ -652,68 +739,6 @@ export function SalesDashboard() {
         ))}
       </div>
     </>
-  );
-}
-
-type TableTab = 'market' | 'daily' | 'daily-item';
-
-// 표 영역 탭 전환용 세그먼트 컨트롤. 전역 클래스 추가 없이 로컬 인라인 스타일로만 구성
-// (index.css 불변 요구). macOS 사이드바 네비 톤(선택 시 accent 강조)에 맞춤.
-function SalesTableTabs({
-  active,
-  onChange,
-}: {
-  active: TableTab;
-  onChange: (t: TableTab) => void;
-}) {
-  const tabs: { id: TableTab; label: string }[] = [
-    { id: 'market', label: '국가·품목별' },
-    { id: 'daily', label: '일별' },
-    { id: 'daily-item', label: '일별 품목별' },
-  ];
-  return (
-    <div
-      role="tablist"
-      aria-label="표 보기 전환"
-      style={{
-        display: 'flex',
-        gap: 4,
-        flexWrap: 'wrap',
-        padding: 4,
-        marginBottom: 'var(--sp-4)',
-        background: 'var(--bg-subtle)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-card)',
-        width: 'fit-content',
-      }}
-    >
-      {tabs.map((t) => {
-        const on = active === t.id;
-        return (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            aria-selected={on}
-            onClick={() => onChange(t.id)}
-            style={{
-              padding: '7px 16px',
-              borderRadius: 8,
-              border: '1px solid transparent',
-              cursor: 'pointer',
-              fontSize: 13.5,
-              fontWeight: on ? 700 : 500,
-              color: on ? 'var(--accent)' : 'var(--muted)',
-              background: on ? 'var(--bg)' : 'transparent',
-              boxShadow: on ? 'var(--e1)' : 'none',
-              transition: 'color 120ms ease, background 120ms ease',
-            }}
-          >
-            {t.label}
-          </button>
-        );
-      })}
-    </div>
   );
 }
 
